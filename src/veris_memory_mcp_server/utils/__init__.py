@@ -1,14 +1,14 @@
 """Utility modules."""
 
-from .logging import setup_logging, get_logger
-from .cache import MemoryCache, CachedVerisClient
-from .health import HealthChecker, HealthStatus, HealthCheckResult
+from .cache import CachedVerisClient, MemoryCache
+from .health import HealthChecker, HealthCheckResult, HealthStatus
+from .logging import get_logger, setup_logging
 
 __all__ = [
-    "setup_logging", 
+    "setup_logging",
     "get_logger",
     "MemoryCache",
-    "CachedVerisClient", 
+    "CachedVerisClient",
     "HealthChecker",
     "HealthStatus",
     "HealthCheckResult",

@@ -15,18 +15,18 @@ from .base import BaseTool, ToolError, ToolResult
 class RetrieveContextTool(BaseTool):
     """
     Tool for retrieving context data from Veris Memory.
-    
+
     Allows Claude CLI to search for and retrieve previously stored
     contexts using semantic search and filtering.
     """
-    
+
     name = "retrieve_context"
     description = "Search and retrieve context data from Veris Memory using semantic search"
-    
+
     def __init__(self, veris_client: VerisMemoryClient, config: Dict[str, Any]):
         """
         Initialize retrieve context tool.
-        
+
         Args:
             veris_client: Veris Memory client instance
             config: Tool configuration
@@ -35,7 +35,7 @@ class RetrieveContextTool(BaseTool):
         self.veris_client = veris_client
         self.max_results = config.get("max_results", 100)
         self.default_limit = config.get("default_limit", 10)
-    
+
     def get_schema(self) -> Tool:
         """Get the tool schema definition."""
         return self._create_schema(
@@ -64,14 +64,14 @@ class RetrieveContextTool(BaseTool):
             },
             required=["query"],
         )
-    
+
     async def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         """
         Execute retrieve context operation.
-        
+
         Args:
             arguments: Tool arguments containing query, limit, filters, etc.
-            
+
         Returns:
             Tool result with retrieved contexts
         """
@@ -79,7 +79,7 @@ class RetrieveContextTool(BaseTool):
         limit = arguments.get("limit", self.default_limit)
         context_type = arguments.get("context_type")
         metadata_filters = arguments.get("metadata_filters")
-        
+
         try:
             # Validate limit
             if not isinstance(limit, int) or limit < 1 or limit > self.max_results:
@@ -88,14 +88,14 @@ class RetrieveContextTool(BaseTool):
                     code="invalid_limit",
                     details={"limit": limit, "max_results": self.max_results},
                 )
-            
+
             # Validate query
             if not query or not query.strip():
                 raise ToolError(
                     "Query cannot be empty",
                     code="empty_query",
                 )
-            
+
             # Retrieve contexts via Veris Memory client
             contexts = await self.veris_client.retrieve_context(
                 query=query.strip(),
@@ -103,7 +103,7 @@ class RetrieveContextTool(BaseTool):
                 context_type=context_type,
                 metadata_filters=metadata_filters,
             )
-            
+
             # Format results
             if not contexts:
                 return ToolResult.success(
@@ -123,13 +123,13 @@ class RetrieveContextTool(BaseTool):
                         "result_count": 0,
                     },
                 )
-            
+
             # Format contexts for display
             formatted_contexts = self._format_contexts(contexts)
-            
+
             # Create summary text
             summary_text = self._create_summary(query, contexts, context_type, metadata_filters)
-            
+
             return ToolResult.success(
                 text=summary_text,
                 data={
@@ -147,7 +147,7 @@ class RetrieveContextTool(BaseTool):
                     "result_count": len(contexts),
                 },
             )
-        
+
         except VerisMemoryClientError as e:
             self.logger.error("Veris Memory API error", error=str(e))
             return ToolResult.error(
@@ -155,30 +155,30 @@ class RetrieveContextTool(BaseTool):
                 error_code="veris_memory_error",
                 details={"original_error": str(e.original_error) if e.original_error else None},
             )
-        
+
         except ToolError:
             # Re-raise tool errors as-is
             raise
-        
+
         except Exception as e:
             self.logger.error("Unexpected error retrieving contexts", error=str(e), exc_info=True)
             raise ToolError(
                 f"Unexpected error retrieving contexts: {str(e)}",
                 code="internal_error",
             )
-    
+
     def _format_contexts(self, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Format contexts for display.
-        
+
         Args:
             contexts: Raw contexts from Veris Memory
-            
+
         Returns:
             Formatted contexts
         """
         formatted = []
-        
+
         for context in contexts:
             formatted_context = {
                 "id": context.get("id", "unknown"),
@@ -189,7 +189,7 @@ class RetrieveContextTool(BaseTool):
                 "created_at": context.get("created_at"),
                 "relevance_score": context.get("relevance_score", 0.0),
             }
-            
+
             # Include full content if it's not too large
             content = context.get("content", {})
             if isinstance(content, dict):
@@ -198,33 +198,33 @@ class RetrieveContextTool(BaseTool):
                     formatted_context["content"] = content
                 else:
                     formatted_context["content_preview"] = str(content)[:500] + "..."
-            
+
             formatted.append(formatted_context)
-        
+
         # Sort by relevance score (descending)
         formatted.sort(key=lambda x: x.get("relevance_score", 0.0), reverse=True)
-        
+
         return formatted
-    
+
     def _extract_title(self, context: Dict[str, Any]) -> str:
         """Extract title from context."""
         content = context.get("content", {})
-        
+
         # Try various title fields
         if isinstance(content, dict):
             for field in ["title", "name", "subject", "summary"]:
                 if field in content and content[field]:
                     return str(content[field])[:100]  # Limit title length
-        
+
         # Fallback to context type and ID
         context_type = context.get("context_type", "Context")
         context_id = context.get("id", "unknown")
         return f"{context_type.title()} ({context_id[:8]})"
-    
+
     def _extract_summary(self, context: Dict[str, Any]) -> str:
         """Extract summary from context."""
         content = context.get("content", {})
-        
+
         if isinstance(content, dict):
             # Try summary fields first
             for field in ["summary", "description", "text", "content"]:
@@ -236,25 +236,25 @@ class RetrieveContextTool(BaseTool):
                         if len(first_sentence) <= 200:
                             return first_sentence
                     return text[:200] + ("..." if len(text) > 200 else "")
-        
+
         return "No summary available"
-    
+
     def _create_summary(
         self,
         query: str,
         contexts: List[Dict[str, Any]],
-        context_type: str = None,
-        metadata_filters: Dict[str, Any] = None,
+        context_type: Optional[str] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Create summary text for the results."""
         count = len(contexts)
-        
+
         # Base message
         if count == 1:
             summary = f"Found 1 context matching '{query}'"
         else:
             summary = f"Found {count} contexts matching '{query}'"
-        
+
         # Add filter information
         filters = []
         if context_type:
@@ -262,20 +262,20 @@ class RetrieveContextTool(BaseTool):
         if metadata_filters:
             filter_strs = [f"{k}: {v}" for k, v in metadata_filters.items()]
             filters.append(f"metadata: {', '.join(filter_strs)}")
-        
+
         if filters:
             summary += f" (filtered by {', '.join(filters)})"
-        
+
         summary += ":"
-        
+
         # Add brief descriptions of top results
         if contexts:
             for i, context in enumerate(contexts[:3]):  # Show top 3
                 title = self._extract_title(context)
                 context_type = context.get("context_type", "unknown")
                 summary += f"\n{i+1}. [{context_type}] {title}"
-        
+
         if count > 3:
             summary += f"\n... and {count - 3} more results"
-        
+
         return summary

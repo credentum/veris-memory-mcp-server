@@ -9,17 +9,17 @@ __version__ = "0.2.0"
 __author__ = "Veris Memory Team"
 __license__ = "MIT"
 
-from .server import VerisMemoryMCPServer
 from .config.settings import Config, load_config
-from .utils import MemoryCache, HealthChecker
+from .server import VerisMemoryMCPServer
+from .utils import HealthChecker, MemoryCache
 
 __all__ = [
-    "VerisMemoryMCPServer", 
+    "VerisMemoryMCPServer",
     "Config",
     "load_config",
     "MemoryCache",
     "HealthChecker",
-    "__version__", 
-    "__author__", 
+    "__version__",
+    "__author__",
     "__license__",
 ]

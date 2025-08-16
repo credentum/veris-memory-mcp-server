@@ -13,14 +13,14 @@ from .base import BaseTool, ToolError, ToolResult
 
 class DeleteContextTool(BaseTool):
     """Tool for deleting contexts with authorization."""
-    
+
     name = "delete_context"
     description = "Delete a context from Veris Memory (requires authorization)"
-    
+
     def __init__(self, veris_client: VerisMemoryClient, config: Dict[str, Any]):
         super().__init__(config)
         self.veris_client = veris_client
-    
+
     def get_schema(self) -> Tool:
         return self._create_schema(
             parameters={
@@ -37,20 +37,20 @@ class DeleteContextTool(BaseTool):
             },
             required=["context_id", "confirm"],
         )
-    
+
     async def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         context_id = arguments["context_id"]
         confirm = arguments.get("confirm", False)
-        
+
         try:
             if not context_id or not context_id.strip():
                 raise ToolError("Context ID cannot be empty", code="empty_context_id")
-            
+
             if not confirm:
                 raise ToolError("Deletion requires explicit confirmation", code="not_confirmed")
-            
+
             result = await self.veris_client.delete_context(context_id.strip())
-            
+
             return ToolResult.success(
                 text=f"Successfully deleted context: {context_id}",
                 data=result,
@@ -60,7 +60,7 @@ class DeleteContextTool(BaseTool):
                     "success": True,
                 },
             )
-            
+
         except VerisMemoryClientError as e:
             return ToolResult.error(f"Deletion failed: {e.message}", "veris_memory_error")
         except Exception as e:

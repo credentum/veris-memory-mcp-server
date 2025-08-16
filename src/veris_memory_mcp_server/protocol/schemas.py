@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 class MCPError(Exception):
     """Base exception for MCP protocol errors."""
-    
+
     def __init__(
         self,
         message: str,
@@ -24,7 +24,7 @@ class MCPError(Exception):
         self.message = message
         self.code = code
         self.data = data or {}
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to JSON-RPC error format."""
         error_dict = {
@@ -38,21 +38,21 @@ class MCPError(Exception):
 
 class MCPValidationError(MCPError):
     """Error for invalid request parameters."""
-    
+
     def __init__(self, message: str, data: Optional[Dict[str, Any]] = None):
         super().__init__(message, code=-32602, data=data)
 
 
 class MCPMethodNotFoundError(MCPError):
     """Error for unknown method calls."""
-    
+
     def __init__(self, method: str):
         super().__init__(f"Method not found: {method}", code=-32601)
 
 
 class MCPInternalError(MCPError):
     """Error for internal server issues."""
-    
+
     def __init__(self, message: str, data: Optional[Dict[str, Any]] = None):
         super().__init__(message, code=-32603, data=data)
 
@@ -60,16 +60,16 @@ class MCPInternalError(MCPError):
 # Base message types
 class MCPMessage(BaseModel, ABC):
     """Base class for all MCP messages."""
-    
+
     jsonrpc: str = Field(default="2.0", description="JSON-RPC version")
-    
+
     class Config:
         extra = "forbid"
 
 
 class MCPRequest(MCPMessage):
     """Base class for MCP requests."""
-    
+
     id: Union[str, int] = Field(description="Request ID")
     method: str = Field(description="Method name")
     params: Optional[Dict[str, Any]] = Field(default=None, description="Method parameters")
@@ -77,7 +77,7 @@ class MCPRequest(MCPMessage):
 
 class MCPResponse(MCPMessage):
     """Base class for MCP responses."""
-    
+
     id: Union[str, int] = Field(description="Request ID")
     result: Optional[Dict[str, Any]] = Field(default=None, description="Response result")
     error: Optional[Dict[str, Any]] = Field(default=None, description="Error information")
@@ -85,7 +85,7 @@ class MCPResponse(MCPMessage):
 
 class MCPNotification(MCPMessage):
     """Base class for MCP notifications (no response expected)."""
-    
+
     method: str = Field(description="Method name")
     params: Optional[Dict[str, Any]] = Field(default=None, description="Method parameters")
 
@@ -93,14 +93,14 @@ class MCPNotification(MCPMessage):
 # Client info structures
 class ClientInfo(BaseModel):
     """Information about the MCP client."""
-    
+
     name: str = Field(description="Client name")
     version: str = Field(description="Client version")
 
 
 class ServerInfo(BaseModel):
     """Information about the MCP server."""
-    
+
     name: str = Field(default="veris-memory-mcp-server", description="Server name")
     version: str = Field(default="0.1.0", description="Server version")
 
@@ -108,7 +108,7 @@ class ServerInfo(BaseModel):
 # Tool structures
 class ToolParameter(BaseModel):
     """Tool parameter definition."""
-    
+
     type: str = Field(description="Parameter type")
     description: Optional[str] = Field(default=None, description="Parameter description")
     enum: Optional[List[str]] = Field(default=None, description="Allowed values")
@@ -117,7 +117,7 @@ class ToolParameter(BaseModel):
 
 class ToolSchema(BaseModel):
     """Tool input schema definition."""
-    
+
     type: str = Field(default="object", description="Schema type")
     properties: Dict[str, ToolParameter] = Field(description="Tool parameters")
     required: List[str] = Field(default_factory=list, description="Required parameters")
@@ -125,7 +125,7 @@ class ToolSchema(BaseModel):
 
 class Tool(BaseModel):
     """Tool definition."""
-    
+
     name: str = Field(description="Tool name")
     description: str = Field(description="Tool description")
     inputSchema: ToolSchema = Field(description="Tool input schema")
@@ -134,30 +134,32 @@ class Tool(BaseModel):
 # Initialize protocol
 class MCPInitializeRequest(MCPRequest):
     """Initialize request from client."""
-    
-    method: str = Field(default="initialize", const=True)
+
+    method: str = Field(default="initialize", frozen=True)
     params: Dict[str, Any] = Field(description="Initialize parameters")
-    
+
     @property
     def protocol_version(self) -> str:
         """Get protocol version from params."""
-        return self.params.get("protocolVersion", "2024-11-05")
-    
+        version = self.params.get("protocolVersion", "2024-11-05")
+        return str(version)
+
     @property
     def client_info(self) -> Optional[ClientInfo]:
         """Get client info from params."""
         client_data = self.params.get("clientInfo")
         return ClientInfo(**client_data) if client_data else None
-    
+
     @property
     def capabilities(self) -> Dict[str, Any]:
         """Get client capabilities from params."""
-        return self.params.get("capabilities", {})
+        caps = self.params.get("capabilities", {})
+        return caps if isinstance(caps, dict) else {}
 
 
 class MCPInitializeResponse(MCPResponse):
     """Initialize response to client."""
-    
+
     def __init__(
         self,
         request_id: Union[str, int],
@@ -170,7 +172,8 @@ class MCPInitializeResponse(MCPResponse):
             result={
                 "protocolVersion": protocol_version,
                 "serverInfo": (server_info or ServerInfo()).dict(),
-                "capabilities": capabilities or {
+                "capabilities": capabilities
+                or {
                     "tools": {},
                     "resources": {},
                     "prompts": {},
@@ -182,49 +185,49 @@ class MCPInitializeResponse(MCPResponse):
 # List tools
 class MCPListToolsRequest(MCPRequest):
     """List tools request from client."""
-    
-    method: str = Field(default="tools/list", const=True)
+
+    method: str = Field(default="tools/list", frozen=True)
 
 
 class MCPListToolsResponse(MCPResponse):
     """List tools response to client."""
-    
+
     def __init__(self, request_id: Union[str, int], tools: List[Tool]):
         super().__init__(
             id=request_id,
-            result={
-                "tools": [tool.dict() for tool in tools]
-            },
+            result={"tools": [tool.dict() for tool in tools]},
         )
 
 
 # Call tool
 class MCPCallToolRequest(MCPRequest):
     """Call tool request from client."""
-    
-    method: str = Field(default="tools/call", const=True)
-    
+
+    method: str = Field(default="tools/call", frozen=True)
+
     @property
     def tool_name(self) -> str:
         """Get tool name from params."""
-        return self.params.get("name", "")
-    
+        name = self.params.get("name", "")
+        return str(name) if name is not None else ""
+
     @property
     def tool_arguments(self) -> Dict[str, Any]:
         """Get tool arguments from params."""
-        return self.params.get("arguments", {})
+        args = self.params.get("arguments", {})
+        return args if isinstance(args, dict) else {}
 
 
 class ToolResult(BaseModel):
     """Result of tool execution."""
-    
+
     content: List[Dict[str, Any]] = Field(description="Tool result content")
     isError: bool = Field(default=False, description="Whether result is an error")
 
 
 class MCPCallToolResponse(MCPResponse):
     """Call tool response to client."""
-    
+
     def __init__(
         self,
         request_id: Union[str, int],
@@ -243,25 +246,26 @@ class MCPCallToolResponse(MCPResponse):
 # Logging notification
 class MCPLogNotification(MCPNotification):
     """Log notification to client."""
-    
-    method: str = Field(default="notifications/log", const=True)
-    
+
+    method: str = Field(default="notifications/log", frozen=True)
+
     def __init__(self, level: str, message: str, data: Optional[Dict[str, Any]] = None):
         super().__init__(
+            method="notifications/log",
             params={
                 "level": level,
                 "message": message,
                 "data": data or {},
-            }
+            },
         )
 
 
 # Progress notification
 class MCPProgressNotification(MCPNotification):
     """Progress notification to client."""
-    
-    method: str = Field(default="notifications/progress", const=True)
-    
+
+    method: str = Field(default="notifications/progress", frozen=True)
+
     def __init__(
         self,
         progress_token: Union[str, int],

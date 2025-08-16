@@ -1,0 +1,2 @@
+[console_scripts]
+veris-memory-mcp-server = veris_memory_mcp_server.main:main

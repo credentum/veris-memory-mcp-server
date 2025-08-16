@@ -11,16 +11,17 @@ from typing import Any, Dict, List, Optional
 import structlog
 from pydantic import BaseModel, ValidationError
 
-from ..protocol.schemas import Tool, ToolSchema, ToolParameter
-
+from ..protocol.schemas import Tool, ToolParameter, ToolSchema
 
 logger = structlog.get_logger(__name__)
 
 
 class ToolError(Exception):
     """Base exception for tool execution errors."""
-    
-    def __init__(self, message: str, code: str = "tool_error", details: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self, message: str, code: str = "tool_error", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message)
         self.message = message
         self.code = code
@@ -29,21 +30,21 @@ class ToolError(Exception):
 
 class ToolValidationError(ToolError):
     """Error for invalid tool arguments."""
-    
+
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, code="validation_error", details=details)
 
 
 class ToolExecutionError(ToolError):
     """Error during tool execution."""
-    
+
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, code="execution_error", details=details)
 
 
 class ToolResult:
     """Standardized tool result format."""
-    
+
     def __init__(
         self,
         content: List[Dict[str, Any]],
@@ -53,7 +54,7 @@ class ToolResult:
         self.content = content
         self.is_error = is_error
         self.metadata = metadata or {}
-    
+
     @classmethod
     def success(
         cls,
@@ -65,9 +66,9 @@ class ToolResult:
         content = [{"type": "text", "text": text}]
         if data:
             content.append({"type": "resource", "resource": data})
-        
+
         return cls(content=content, is_error=False, metadata=metadata)
-    
+
     @classmethod
     def error(
         cls,
@@ -82,18 +83,20 @@ class ToolResult:
                 "text": f"Error: {message}",
             }
         ]
-        
+
         if details:
-            content.append({
-                "type": "resource",
-                "resource": {
-                    "error_code": error_code,
-                    "details": details,
+            content.append(
+                {
+                    "type": "resource",
+                    "resource": {
+                        "error_code": error_code,
+                        "details": details,
+                    },
                 }
-            })
-        
+            )
+
         return cls(content=content, is_error=True)
-    
+
     @classmethod
     def data(
         cls,
@@ -106,101 +109,101 @@ class ToolResult:
             {"type": "text", "text": description},
             {"type": "resource", "resource": data},
         ]
-        
+
         return cls(content=content, is_error=False, metadata=metadata)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for MCP response."""
         result = {
             "content": self.content,
             "isError": self.is_error,
         }
-        
+
         if self.metadata:
             result["metadata"] = self.metadata
-        
+
         return result
 
 
 class BaseTool(ABC):
     """
     Base class for all MCP tools.
-    
+
     Provides common functionality including argument validation,
     error handling, and result formatting.
     """
-    
+
     # Tool metadata (must be defined by subclasses)
     name: str = ""
     description: str = ""
-    
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize tool with configuration.
-        
+
         Args:
             config: Tool-specific configuration
         """
         self.config = config or {}
         self._setup_logging()
-    
+
     def _setup_logging(self) -> None:
         """Set up tool-specific logging."""
         self.logger = logger.bind(tool=self.name)
-    
+
     @abstractmethod
     def get_schema(self) -> Tool:
         """
         Get the tool schema definition.
-        
+
         Returns:
             Tool schema for MCP protocol
         """
         pass
-    
+
     @abstractmethod
     async def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         """
         Execute the tool with given arguments.
-        
+
         Args:
             arguments: Tool arguments from MCP request
-            
+
         Returns:
             Tool execution result
-            
+
         Raises:
             ToolError: If execution fails
         """
         pass
-    
+
     async def __call__(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Make tool callable for MCP handler integration.
-        
+
         Args:
             arguments: Tool arguments
-            
+
         Returns:
             Formatted result dictionary
         """
         try:
             self.logger.info("Executing tool", arguments=arguments)
-            
+
             # Validate arguments
             self._validate_arguments(arguments)
-            
+
             # Execute tool
             result = await self.execute(arguments)
-            
+
             self.logger.info(
                 "Tool execution completed",
                 success=not result.is_error,
                 result_type=type(result.content).__name__ if result.content else None,
             )
-            
+
             return result.to_dict()
-        
+
         except ToolError as e:
             self.logger.warning(
                 "Tool execution failed",
@@ -209,7 +212,7 @@ class BaseTool(ABC):
                 details=e.details,
             )
             return ToolResult.error(e.message, e.code, e.details).to_dict()
-        
+
         except Exception as e:
             self.logger.error(
                 "Unexpected tool error",
@@ -221,19 +224,19 @@ class BaseTool(ABC):
                 "internal_error",
                 {"exception": str(e)},
             ).to_dict()
-    
+
     def _validate_arguments(self, arguments: Dict[str, Any]) -> None:
         """
         Validate tool arguments against schema.
-        
+
         Args:
             arguments: Arguments to validate
-            
+
         Raises:
             ToolValidationError: If validation fails
         """
         schema = self.get_schema()
-        
+
         # Check required parameters
         for required_param in schema.inputSchema.required:
             if required_param not in arguments:
@@ -241,13 +244,13 @@ class BaseTool(ABC):
                     f"Missing required parameter: {required_param}",
                     details={"missing_parameter": required_param},
                 )
-        
+
         # Validate parameter types and constraints
         for param_name, param_value in arguments.items():
             if param_name in schema.inputSchema.properties:
                 param_def = schema.inputSchema.properties[param_name]
                 self._validate_parameter(param_name, param_value, param_def)
-    
+
     def _validate_parameter(
         self,
         name: str,
@@ -256,12 +259,12 @@ class BaseTool(ABC):
     ) -> None:
         """
         Validate a single parameter.
-        
+
         Args:
             name: Parameter name
             value: Parameter value
             definition: Parameter definition
-            
+
         Raises:
             ToolValidationError: If validation fails
         """
@@ -269,41 +272,69 @@ class BaseTool(ABC):
         if definition.type == "string" and not isinstance(value, str):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a string",
-                details={"parameter": name, "expected_type": "string", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "string",
+                    "actual_type": type(value).__name__,
+                },
             )
         elif definition.type == "number" and not isinstance(value, (int, float)):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a number",
-                details={"parameter": name, "expected_type": "number", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "number",
+                    "actual_type": type(value).__name__,
+                },
             )
         elif definition.type == "integer" and not isinstance(value, int):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an integer",
-                details={"parameter": name, "expected_type": "integer", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "integer",
+                    "actual_type": type(value).__name__,
+                },
             )
         elif definition.type == "boolean" and not isinstance(value, bool):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a boolean",
-                details={"parameter": name, "expected_type": "boolean", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "boolean",
+                    "actual_type": type(value).__name__,
+                },
             )
         elif definition.type == "object" and not isinstance(value, dict):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an object",
-                details={"parameter": name, "expected_type": "object", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "object",
+                    "actual_type": type(value).__name__,
+                },
             )
         elif definition.type == "array" and not isinstance(value, list):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an array",
-                details={"parameter": name, "expected_type": "array", "actual_type": type(value).__name__},
+                details={
+                    "parameter": name,
+                    "expected_type": "array",
+                    "actual_type": type(value).__name__,
+                },
             )
-        
+
         # Enum validation
         if definition.enum and value not in definition.enum:
             raise ToolValidationError(
                 f"Parameter '{name}' must be one of: {definition.enum}",
-                details={"parameter": name, "allowed_values": definition.enum, "actual_value": value},
+                details={
+                    "parameter": name,
+                    "allowed_values": definition.enum,
+                    "actual_value": value,
+                },
             )
-    
+
     def _create_parameter(
         self,
         param_type: str,
@@ -319,7 +350,7 @@ class BaseTool(ABC):
             enum=enum,
             default=default,
         )
-    
+
     def _create_schema(
         self,
         parameters: Dict[str, ToolParameter],

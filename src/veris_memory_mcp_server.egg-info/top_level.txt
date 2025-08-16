@@ -1,0 +1,1 @@
+veris_memory_mcp_server
