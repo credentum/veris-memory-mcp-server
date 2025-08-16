@@ -72,6 +72,41 @@ class ToolConfig(BaseModel):
     default_limit: int = Field(default=10, description="Default result limit")
 
 
+class WebhookConfig(BaseModel):
+    """Configuration for webhook system."""
+    
+    enabled: bool = Field(default=True, description="Enable webhook notifications")
+    max_subscriptions: int = Field(default=1000, description="Maximum webhook subscriptions")
+    event_buffer_size: int = Field(default=10000, description="Event buffer size")
+    max_retries: int = Field(default=3, description="Maximum delivery retries")
+    timeout_seconds: float = Field(default=30.0, description="HTTP request timeout")
+    initial_backoff_seconds: float = Field(default=1.0, description="Initial retry backoff")
+    max_backoff_seconds: float = Field(default=60.0, description="Maximum retry backoff")
+    max_concurrent_deliveries: int = Field(default=100, description="Max concurrent deliveries")
+    signing_secret: Optional[str] = Field(default=None, description="Default webhook signing secret")
+    
+    @validator("signing_secret", pre=True)
+    def resolve_signing_secret(cls, v: Optional[str]) -> Optional[str]:
+        """Resolve signing secret from environment variable if needed."""
+        if v is None:
+            return os.getenv("WEBHOOK_SIGNING_SECRET")
+        if isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+            env_var = v[2:-1]
+            return os.getenv(env_var)
+        return v
+
+
+class StreamingConfig(BaseModel):
+    """Configuration for streaming operations."""
+    
+    enabled: bool = Field(default=True, description="Enable streaming capabilities")
+    chunk_size: int = Field(default=1024, description="Streaming chunk size")
+    max_concurrent_streams: int = Field(default=10, description="Max concurrent streams")
+    buffer_size: int = Field(default=8192, description="Stream buffer size")
+    default_batch_size: int = Field(default=50, description="Default batch size")
+    max_batch_size: int = Field(default=1000, description="Maximum batch size")
+
+
 class ToolsConfig(BaseModel):
     """Configuration for all available tools."""
     
@@ -80,6 +115,12 @@ class ToolsConfig(BaseModel):
     search_context: ToolConfig = Field(default_factory=ToolConfig)
     delete_context: ToolConfig = Field(default_factory=lambda: ToolConfig(enabled=False))
     list_context_types: ToolConfig = Field(default_factory=ToolConfig)
+    
+    # Advanced tools
+    streaming_search: ToolConfig = Field(default_factory=ToolConfig)
+    batch_operations: ToolConfig = Field(default_factory=ToolConfig)
+    webhook_management: ToolConfig = Field(default_factory=ToolConfig)
+    event_notification: ToolConfig = Field(default_factory=ToolConfig)
 
 
 class Config(BaseModel):
@@ -89,6 +130,8 @@ class Config(BaseModel):
     veris_memory: VerisMemoryConfig = Field(default_factory=VerisMemoryConfig)
     server: ServerConfig = Field(default_factory=ServerConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    webhooks: WebhookConfig = Field(default_factory=WebhookConfig)
+    streaming: StreamingConfig = Field(default_factory=StreamingConfig)
     
     class Config:
         extra = "forbid"  # Don't allow extra fields
@@ -186,7 +229,42 @@ def create_default_config(config_path: Path) -> None:
                 "enabled": True,
                 "max_results": 100,
                 "default_limit": 10
+            },
+            "streaming_search": {
+                "enabled": True,
+                "max_results": 10000,
+                "default_limit": 1000
+            },
+            "batch_operations": {
+                "enabled": True,
+                "max_results": 1000,
+                "default_limit": 50
+            },
+            "webhook_management": {
+                "enabled": True
+            },
+            "event_notification": {
+                "enabled": True
             }
+        },
+        "webhooks": {
+            "enabled": True,
+            "max_subscriptions": 1000,
+            "event_buffer_size": 10000,
+            "max_retries": 3,
+            "timeout_seconds": 30.0,
+            "initial_backoff_seconds": 1.0,
+            "max_backoff_seconds": 60.0,
+            "max_concurrent_deliveries": 100,
+            "signing_secret": "${WEBHOOK_SIGNING_SECRET}"
+        },
+        "streaming": {
+            "enabled": True,
+            "chunk_size": 1024,
+            "max_concurrent_streams": 10,
+            "buffer_size": 8192,
+            "default_batch_size": 50,
+            "max_batch_size": 1000
         }
     }
     

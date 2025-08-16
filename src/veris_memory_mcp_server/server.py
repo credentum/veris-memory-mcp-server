@@ -22,6 +22,11 @@ from .tools.retrieve_context import RetrieveContextTool
 from .tools.search_context import SearchContextTool
 from .tools.delete_context import DeleteContextTool
 from .tools.list_context_types import ListContextTypesTool
+from .streaming.engine import StreamingEngine
+from .streaming.tools import StreamingSearchTool, BatchOperationsTool
+from .webhooks.manager import WebhookManager
+from .webhooks.delivery import WebhookDelivery
+from .webhooks.tools import WebhookManagementTool, EventNotificationTool
 from .utils.cache import MemoryCache, CachedVerisClient
 from .utils.health import (
     HealthChecker,
@@ -66,6 +71,32 @@ class VerisMemoryMCPServer:
             )
             self.cached_client = CachedVerisClient(self.veris_client, self.cache)
         
+        # Initialize streaming engine if enabled
+        self.streaming_engine = None
+        if config.streaming.enabled:
+            self.streaming_engine = StreamingEngine(
+                client=self.cached_client,
+                chunk_size=config.streaming.chunk_size,
+                max_concurrent_streams=config.streaming.max_concurrent_streams,
+                buffer_size=config.streaming.buffer_size,
+            )
+        
+        # Initialize webhook system if enabled
+        self.webhook_manager = None
+        if config.webhooks.enabled:
+            webhook_delivery = WebhookDelivery(
+                max_retries=config.webhooks.max_retries,
+                initial_backoff_seconds=config.webhooks.initial_backoff_seconds,
+                max_backoff_seconds=config.webhooks.max_backoff_seconds,
+                timeout_seconds=config.webhooks.timeout_seconds,
+                max_concurrent_deliveries=config.webhooks.max_concurrent_deliveries,
+            )
+            self.webhook_manager = WebhookManager(
+                delivery_engine=webhook_delivery,
+                max_subscriptions=config.webhooks.max_subscriptions,
+                event_buffer_size=config.webhooks.event_buffer_size,
+            )
+        
         # Initialize health monitoring
         self.health_checker = create_veris_memory_health_checks()
         
@@ -94,6 +125,11 @@ class VerisMemoryMCPServer:
             # Connect to Veris Memory
             await self.veris_client.connect()
             
+            # Start webhook manager if enabled
+            if self.webhook_manager:
+                await self.webhook_manager.start()
+                logger.debug("Webhook manager started")
+            
             # Set up health checks
             await self._setup_health_checks()
             
@@ -110,6 +146,8 @@ class VerisMemoryMCPServer:
                 tools_registered=len(self._tools),
                 veris_connected=self.veris_client.connected,
                 cache_enabled=self.cache is not None,
+                streaming_enabled=self.streaming_engine is not None,
+                webhooks_enabled=self.webhook_manager is not None,
                 health_checks=len(self.health_checker.get_registered_checks()),
             )
             
@@ -130,6 +168,11 @@ class VerisMemoryMCPServer:
         
         # Stop transport
         await self.transport.stop()
+        
+        # Stop webhook manager if enabled
+        if self.webhook_manager:
+            await self.webhook_manager.stop()
+            logger.debug("Webhook manager stopped")
         
         # Disconnect from Veris Memory
         await self.veris_client.disconnect()
@@ -224,10 +267,60 @@ class VerisMemoryMCPServer:
             self.mcp_handler.register_tool(list_tool.get_schema(), list_tool)
             logger.debug("Registered list_context_types tool")
         
+        # Advanced streaming tools
+        if self.streaming_engine:
+            # Streaming Search Tool
+            if self.config.tools.streaming_search.enabled:
+                streaming_search_tool = StreamingSearchTool(
+                    client_to_use,
+                    self.streaming_engine,
+                    self.config.tools.streaming_search.dict(),
+                )
+                self._tools["streaming_search"] = streaming_search_tool
+                self.mcp_handler.register_tool(streaming_search_tool.get_schema(), streaming_search_tool)
+                logger.debug("Registered streaming_search tool")
+            
+            # Batch Operations Tool
+            if self.config.tools.batch_operations.enabled:
+                batch_ops_tool = BatchOperationsTool(
+                    client_to_use,
+                    self.streaming_engine,
+                    self.config.tools.batch_operations.dict(),
+                )
+                self._tools["batch_operations"] = batch_ops_tool
+                self.mcp_handler.register_tool(batch_ops_tool.get_schema(), batch_ops_tool)
+                logger.debug("Registered batch_operations tool")
+        
+        # Webhook management tools
+        if self.webhook_manager:
+            # Webhook Management Tool
+            if self.config.tools.webhook_management.enabled:
+                webhook_mgmt_tool = WebhookManagementTool(
+                    self.webhook_manager,
+                    self.config.tools.webhook_management.dict(),
+                )
+                self._tools["webhook_management"] = webhook_mgmt_tool
+                self.mcp_handler.register_tool(webhook_mgmt_tool.get_schema(), webhook_mgmt_tool)
+                logger.debug("Registered webhook_management tool")
+            
+            # Event Notification Tool
+            if self.config.tools.event_notification.enabled:
+                event_notif_tool = EventNotificationTool(
+                    self.webhook_manager,
+                    self.config.tools.event_notification.dict(),
+                )
+                self._tools["event_notification"] = event_notif_tool
+                self.mcp_handler.register_tool(event_notif_tool.get_schema(), event_notif_tool)
+                logger.debug("Registered event_notification tool")
+        
         logger.info(
             "Tools registered successfully",
             enabled_tools=list(self._tools.keys()),
             total_tools=len(self._tools),
+            advanced_features={
+                "streaming": self.streaming_engine is not None,
+                "webhooks": self.webhook_manager is not None,
+            },
         )
     
     async def _setup_health_checks(self) -> None:
@@ -305,6 +398,14 @@ class VerisMemoryMCPServer:
         # Add cache stats if available
         if self.cache:
             basic_status["cache_stats"] = await self.cache.get_stats()
+        
+        # Add streaming stats if available
+        if self.streaming_engine:
+            basic_status["streaming_stats"] = self.streaming_engine.get_engine_stats()
+        
+        # Add webhook stats if available
+        if self.webhook_manager:
+            basic_status["webhook_stats"] = self.webhook_manager.get_stats()
         
         # Combine with detailed health checks
         return {
