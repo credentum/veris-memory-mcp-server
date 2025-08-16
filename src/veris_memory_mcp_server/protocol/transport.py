@@ -78,7 +78,7 @@ class StdioTransport:
             message: Message to send
         """
         try:
-            message_dict = message.dict(exclude_unset=True)
+            message_dict = message.dict(exclude_unset=False)
             message_json = json.dumps(message_dict, separators=(",", ":"))
 
             # Write to stdout with newline
