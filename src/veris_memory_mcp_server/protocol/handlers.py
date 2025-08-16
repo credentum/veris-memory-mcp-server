@@ -137,7 +137,7 @@ class MCPHandler:
         )
 
         # Validate protocol version
-        supported_versions = ["2024-11-05"]
+        supported_versions = ["2024-11-05", "2025-06-18"]
         if init_request.protocol_version not in supported_versions:
             logger.warning(
                 "Unsupported protocol version",

@@ -141,7 +141,7 @@ class MCPInitializeRequest(MCPRequest):
     @property
     def protocol_version(self) -> str:
         """Get protocol version from params."""
-        version = self.params.get("protocolVersion", "2024-11-05")
+        version = self.params.get("protocolVersion", "2025-06-18")
         return str(version)
 
     @property
@@ -163,7 +163,7 @@ class MCPInitializeResponse(MCPResponse):
     def __init__(
         self,
         request_id: Union[str, int],
-        protocol_version: str = "2024-11-05",
+        protocol_version: str = "2025-06-18",
         server_info: Optional[ServerInfo] = None,
         capabilities: Optional[Dict[str, Any]] = None,
     ):
