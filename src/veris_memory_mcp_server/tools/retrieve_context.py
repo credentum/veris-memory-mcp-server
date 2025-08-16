@@ -5,7 +5,7 @@ Implements the retrieve_context tool that allows Claude CLI to search
 and retrieve stored context data from Veris Memory.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..client.veris_client import VerisMemoryClient, VerisMemoryClientError
 from ..protocol.schemas import Tool
