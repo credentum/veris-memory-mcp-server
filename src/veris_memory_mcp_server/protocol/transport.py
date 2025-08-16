@@ -81,15 +81,23 @@ class StdioTransport:
             message_dict = message.dict(exclude_unset=False)
             message_json = json.dumps(message_dict, separators=(",", ":"))
 
-            # Write to stdout with newline
-            sys.stdout.write(message_json + "\n")
-            sys.stdout.flush()
+            # Write to stdout with newline - ensure immediate flush
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._write_stdout_sync, message_json)
 
             logger.debug("Sent message", message_type=type(message).__name__)
 
         except Exception as e:
             logger.error("Failed to send message", error=str(e), exc_info=True)
             raise TransportError(f"Failed to send message: {e}")
+
+    def _write_stdout_sync(self, message_json: str) -> None:
+        """Synchronous stdout write with immediate flush."""
+        sys.stdout.write(message_json + "\n")
+        sys.stdout.flush()
+        # Ensure OS-level flush
+        import os
+        os.fsync(sys.stdout.fileno())
 
     async def send_response(self, response: MCPResponse) -> None:
         """Send a response message."""
