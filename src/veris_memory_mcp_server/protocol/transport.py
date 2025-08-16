@@ -95,9 +95,13 @@ class StdioTransport:
         """Synchronous stdout write with immediate flush."""
         sys.stdout.write(message_json + "\n")
         sys.stdout.flush()
-        # Ensure OS-level flush
-        import os
-        os.fsync(sys.stdout.fileno())
+        # Try OS-level flush if supported (not available in all pipe contexts)
+        try:
+            import os
+            os.fsync(sys.stdout.fileno())
+        except (OSError, AttributeError):
+            # OS-level flush not supported in this context (e.g., pipes)
+            pass
 
     async def send_response(self, response: MCPResponse) -> None:
         """Send a response message."""
