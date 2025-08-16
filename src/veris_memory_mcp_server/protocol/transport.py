@@ -8,7 +8,7 @@ transport mechanisms for MCP message exchange.
 import asyncio
 import json
 import sys
-from typing import Any, AsyncIterator, Callable, Dict, Optional
+from typing import Any, Awaitable, AsyncIterator, Callable, Dict, Optional, Union
 
 import structlog
 from pydantic import ValidationError
@@ -34,9 +34,15 @@ class StdioTransport:
 
     def __init__(self):
         self._running = False
-        self._message_handler: Optional[Callable[[MCPRequest], MCPResponse]] = None
+        self._message_handler: Optional[Union[
+            Callable[[MCPRequest], MCPResponse],
+            Callable[[MCPRequest], Awaitable[MCPResponse]]
+        ]] = None
 
-    def set_message_handler(self, handler: Callable[[MCPRequest], MCPResponse]) -> None:
+    def set_message_handler(self, handler: Union[
+        Callable[[MCPRequest], MCPResponse],
+        Callable[[MCPRequest], Awaitable[MCPResponse]]
+    ]) -> None:
         """Set the message handler for incoming requests."""
         self._message_handler = handler
 
@@ -87,6 +93,12 @@ class StdioTransport:
 
     async def send_response(self, response: MCPResponse) -> None:
         """Send a response message."""
+        logger.debug(
+            "Sending MCP response",
+            response_id=response.id,
+            has_result=response.result is not None,
+            has_error=response.error is not None,
+        )
         await self.send_message(response)
 
     async def send_notification(self, notification: MCPNotification) -> None:
@@ -218,10 +230,21 @@ class StdioTransport:
         """Safely call the message handler with error handling."""
         try:
             # Call handler (might be sync or async)
+            logger.debug("Calling message handler", method=request.method, request_id=request.id)
             result = self._message_handler(request)
+            
             if asyncio.iscoroutine(result):
-                return await result
-            return result
+                logger.debug("Handler returned coroutine, awaiting...")
+                response = await result
+                logger.debug(
+                    "Handler completed",
+                    response_id=getattr(response, 'id', 'unknown'),
+                    response_type=type(response).__name__
+                )
+                return response
+            else:
+                logger.debug("Handler returned direct response")
+                return result
 
         except Exception as e:
             logger.error("Handler error", error=str(e), exc_info=True)
