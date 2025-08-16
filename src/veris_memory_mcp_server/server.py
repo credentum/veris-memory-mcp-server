@@ -27,6 +27,9 @@ from .streaming.tools import StreamingSearchTool, BatchOperationsTool
 from .webhooks.manager import WebhookManager
 from .webhooks.delivery import WebhookDelivery
 from .webhooks.tools import WebhookManagementTool, EventNotificationTool
+from .analytics.collector import MetricsCollector
+from .analytics.engine import AnalyticsEngine
+from .analytics.tools import AnalyticsTool, MetricsTool
 from .utils.cache import MemoryCache, CachedVerisClient
 from .utils.health import (
     HealthChecker,
@@ -81,6 +84,17 @@ class VerisMemoryMCPServer:
                 buffer_size=config.streaming.buffer_size,
             )
         
+        # Initialize analytics system if enabled
+        self.metrics_collector = None
+        self.analytics_engine = None
+        if config.analytics.enabled:
+            self.metrics_collector = MetricsCollector(
+                retention_seconds=config.analytics.retention_seconds,
+                max_points_per_metric=config.analytics.max_points_per_metric,
+                aggregation_interval_seconds=config.analytics.aggregation_interval_seconds,
+            )
+            self.analytics_engine = AnalyticsEngine(self.metrics_collector)
+        
         # Initialize webhook system if enabled
         self.webhook_manager = None
         if config.webhooks.enabled:
@@ -125,6 +139,11 @@ class VerisMemoryMCPServer:
             # Connect to Veris Memory
             await self.veris_client.connect()
             
+            # Start metrics collector if enabled
+            if self.metrics_collector:
+                await self.metrics_collector.start()
+                logger.debug("Metrics collector started")
+            
             # Start webhook manager if enabled
             if self.webhook_manager:
                 await self.webhook_manager.start()
@@ -148,6 +167,7 @@ class VerisMemoryMCPServer:
                 cache_enabled=self.cache is not None,
                 streaming_enabled=self.streaming_engine is not None,
                 webhooks_enabled=self.webhook_manager is not None,
+                analytics_enabled=self.analytics_engine is not None,
                 health_checks=len(self.health_checker.get_registered_checks()),
             )
             
@@ -173,6 +193,11 @@ class VerisMemoryMCPServer:
         if self.webhook_manager:
             await self.webhook_manager.stop()
             logger.debug("Webhook manager stopped")
+        
+        # Stop metrics collector if enabled  
+        if self.metrics_collector:
+            await self.metrics_collector.stop()
+            logger.debug("Metrics collector stopped")
         
         # Disconnect from Veris Memory
         await self.veris_client.disconnect()
@@ -313,6 +338,28 @@ class VerisMemoryMCPServer:
                 self.mcp_handler.register_tool(event_notif_tool.get_schema(), event_notif_tool)
                 logger.debug("Registered event_notification tool")
         
+        # Analytics tools
+        if self.analytics_engine:
+            # Analytics Tool
+            if self.config.tools.analytics.enabled:
+                analytics_tool = AnalyticsTool(
+                    self.analytics_engine,
+                    self.config.tools.analytics.dict(),
+                )
+                self._tools["analytics"] = analytics_tool
+                self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool)
+                logger.debug("Registered analytics tool")
+            
+            # Metrics Tool
+            if self.config.tools.metrics.enabled:
+                metrics_tool = MetricsTool(
+                    self.metrics_collector,
+                    self.config.tools.metrics.dict(),
+                )
+                self._tools["metrics"] = metrics_tool
+                self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool)
+                logger.debug("Registered metrics tool")
+        
         logger.info(
             "Tools registered successfully",
             enabled_tools=list(self._tools.keys()),
@@ -320,6 +367,7 @@ class VerisMemoryMCPServer:
             advanced_features={
                 "streaming": self.streaming_engine is not None,
                 "webhooks": self.webhook_manager is not None,
+                "analytics": self.analytics_engine is not None,
             },
         )
     
@@ -406,6 +454,13 @@ class VerisMemoryMCPServer:
         # Add webhook stats if available
         if self.webhook_manager:
             basic_status["webhook_stats"] = self.webhook_manager.get_stats()
+        
+        # Add analytics stats if available
+        if self.analytics_engine:
+            basic_status["analytics_stats"] = {
+                "metrics_collector": self.metrics_collector.get_stats(),
+                "real_time_metrics": await self.analytics_engine.get_real_time_metrics(),
+            }
         
         # Combine with detailed health checks
         return {

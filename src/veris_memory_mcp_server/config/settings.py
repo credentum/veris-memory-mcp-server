@@ -107,6 +107,19 @@ class StreamingConfig(BaseModel):
     max_batch_size: int = Field(default=1000, description="Maximum batch size")
 
 
+class AnalyticsConfig(BaseModel):
+    """Configuration for analytics and metrics collection."""
+    
+    enabled: bool = Field(default=True, description="Enable analytics collection")
+    retention_seconds: int = Field(default=3600, description="Metrics retention period")
+    max_points_per_metric: int = Field(default=10000, description="Max points per metric")
+    aggregation_interval_seconds: int = Field(default=60, description="Aggregation interval")
+    cache_ttl_seconds: int = Field(default=300, description="Analytics cache TTL")
+    export_enabled: bool = Field(default=False, description="Enable metrics export")
+    export_endpoint: Optional[str] = Field(default=None, description="Metrics export endpoint")
+    export_interval_seconds: int = Field(default=300, description="Export interval")
+
+
 class ToolsConfig(BaseModel):
     """Configuration for all available tools."""
     
@@ -121,6 +134,8 @@ class ToolsConfig(BaseModel):
     batch_operations: ToolConfig = Field(default_factory=ToolConfig)
     webhook_management: ToolConfig = Field(default_factory=ToolConfig)
     event_notification: ToolConfig = Field(default_factory=ToolConfig)
+    analytics: ToolConfig = Field(default_factory=ToolConfig)
+    metrics: ToolConfig = Field(default_factory=ToolConfig)
 
 
 class Config(BaseModel):
@@ -132,6 +147,7 @@ class Config(BaseModel):
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     webhooks: WebhookConfig = Field(default_factory=WebhookConfig)
     streaming: StreamingConfig = Field(default_factory=StreamingConfig)
+    analytics: AnalyticsConfig = Field(default_factory=AnalyticsConfig)
     
     class Config:
         extra = "forbid"  # Don't allow extra fields
@@ -245,6 +261,12 @@ def create_default_config(config_path: Path) -> None:
             },
             "event_notification": {
                 "enabled": True
+            },
+            "analytics": {
+                "enabled": True
+            },
+            "metrics": {
+                "enabled": True
             }
         },
         "webhooks": {
@@ -265,6 +287,16 @@ def create_default_config(config_path: Path) -> None:
             "buffer_size": 8192,
             "default_batch_size": 50,
             "max_batch_size": 1000
+        },
+        "analytics": {
+            "enabled": True,
+            "retention_seconds": 3600,
+            "max_points_per_metric": 10000,
+            "aggregation_interval_seconds": 60,
+            "cache_ttl_seconds": 300,
+            "export_enabled": False,
+            "export_endpoint": null,
+            "export_interval_seconds": 300
         }
     }
     
