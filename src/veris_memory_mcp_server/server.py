@@ -22,6 +22,13 @@ from .tools.retrieve_context import RetrieveContextTool
 from .tools.search_context import SearchContextTool
 from .tools.delete_context import DeleteContextTool
 from .tools.list_context_types import ListContextTypesTool
+from .utils.cache import MemoryCache, CachedVerisClient
+from .utils.health import (
+    HealthChecker,
+    create_veris_memory_health_checks,
+    create_veris_client_health_check,
+    create_cache_health_check,
+)
 
 
 logger = structlog.get_logger(__name__)
@@ -48,6 +55,20 @@ class VerisMemoryMCPServer:
         
         # Initialize components
         self.veris_client = VerisMemoryClient(config)
+        
+        # Initialize caching if enabled
+        self.cache = None
+        self.cached_client = self.veris_client
+        if config.server.cache_enabled:
+            self.cache = MemoryCache(
+                default_ttl_seconds=config.server.cache_ttl_seconds,
+                max_size=1000,
+            )
+            self.cached_client = CachedVerisClient(self.veris_client, self.cache)
+        
+        # Initialize health monitoring
+        self.health_checker = create_veris_memory_health_checks()
+        
         self.mcp_handler = MCPHandler(
             server_info=ServerInfo(
                 name="veris-memory-mcp-server",
@@ -73,6 +94,9 @@ class VerisMemoryMCPServer:
             # Connect to Veris Memory
             await self.veris_client.connect()
             
+            # Set up health checks
+            await self._setup_health_checks()
+            
             # Register tools
             await self._register_tools()
             
@@ -85,6 +109,8 @@ class VerisMemoryMCPServer:
                 "Server started successfully",
                 tools_registered=len(self._tools),
                 veris_connected=self.veris_client.connected,
+                cache_enabled=self.cache is not None,
+                health_checks=len(self.health_checker.get_registered_checks()),
             )
             
         except Exception as e:
@@ -145,10 +171,13 @@ class VerisMemoryMCPServer:
         """Register all available tools with the MCP handler."""
         logger.info("Registering tools")
         
+        # Use cached client for tools to improve performance
+        client_to_use = self.cached_client
+        
         # Store Context Tool
         if self.config.tools.store_context.enabled:
             store_tool = StoreContextTool(
-                self.veris_client,
+                client_to_use,
                 self.config.tools.store_context.dict(),
             )
             self._tools["store_context"] = store_tool
@@ -158,7 +187,7 @@ class VerisMemoryMCPServer:
         # Retrieve Context Tool
         if self.config.tools.retrieve_context.enabled:
             retrieve_tool = RetrieveContextTool(
-                self.veris_client,
+                client_to_use,
                 self.config.tools.retrieve_context.dict(),
             )
             self._tools["retrieve_context"] = retrieve_tool
@@ -168,7 +197,7 @@ class VerisMemoryMCPServer:
         # Search Context Tool
         if self.config.tools.search_context.enabled:
             search_tool = SearchContextTool(
-                self.veris_client,
+                client_to_use,
                 self.config.tools.search_context.dict(),
             )
             self._tools["search_context"] = search_tool
@@ -178,7 +207,7 @@ class VerisMemoryMCPServer:
         # Delete Context Tool
         if self.config.tools.delete_context.enabled:
             delete_tool = DeleteContextTool(
-                self.veris_client,
+                client_to_use,
                 self.config.tools.delete_context.dict(),
             )
             self._tools["delete_context"] = delete_tool
@@ -188,7 +217,7 @@ class VerisMemoryMCPServer:
         # List Context Types Tool
         if self.config.tools.list_context_types.enabled:
             list_tool = ListContextTypesTool(
-                self.veris_client,
+                client_to_use,
                 self.config.tools.list_context_types.dict(),
             )
             self._tools["list_context_types"] = list_tool
@@ -199,6 +228,34 @@ class VerisMemoryMCPServer:
             "Tools registered successfully",
             enabled_tools=list(self._tools.keys()),
             total_tools=len(self._tools),
+        )
+    
+    async def _setup_health_checks(self) -> None:
+        """Set up health monitoring checks."""
+        logger.info("Setting up health checks")
+        
+        # Register Veris Memory client health check
+        veris_health_check = create_veris_client_health_check(self.veris_client)
+        self.health_checker.register_check(
+            "veris_connection",
+            veris_health_check,
+            timeout_seconds=10.0,
+            critical=True,
+        )
+        
+        # Register cache health check if caching is enabled
+        if self.cache:
+            cache_health_check = create_cache_health_check(self.cache)
+            self.health_checker.register_check(
+                "cache",
+                cache_health_check,
+                timeout_seconds=2.0,
+                critical=False,  # Cache issues are not critical
+            )
+        
+        logger.debug(
+            "Health checks configured",
+            registered_checks=self.health_checker.get_registered_checks(),
         )
     
     def _setup_signal_handlers(self) -> None:
@@ -227,15 +284,30 @@ class VerisMemoryMCPServer:
     
     async def health_check(self) -> dict:
         """
-        Perform health check of server components.
+        Perform comprehensive health check of server components.
         
         Returns:
             Health status information
         """
-        return {
+        # Run all health checks
+        health_status = await self.health_checker.run_all_checks()
+        
+        # Basic server status
+        basic_status = {
             "server_running": self._running,
             "veris_connected": self.veris_client.connected,
             "mcp_initialized": self.mcp_handler.initialized,
             "tools_registered": len(self._tools),
             "enabled_tools": list(self._tools.keys()),
+            "cache_enabled": self.cache is not None,
+        }
+        
+        # Add cache stats if available
+        if self.cache:
+            basic_status["cache_stats"] = await self.cache.get_stats()
+        
+        # Combine with detailed health checks
+        return {
+            **basic_status,
+            "health_status": health_status.to_dict(),
         }
