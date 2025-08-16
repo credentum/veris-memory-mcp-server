@@ -1,0 +1,44 @@
+{
+  "version": "0.1.0",
+  "veris_memory": {
+    "api_url": "https://api.verismemory.com",
+    "api_key": "${VERIS_MEMORY_API_KEY}",
+    "user_id": "${VERIS_MEMORY_USER_ID}",
+    "timeout_ms": 30000,
+    "max_retries": 3
+  },
+  "server": {
+    "log_level": "INFO",
+    "max_concurrent_requests": 10,
+    "cache_enabled": true,
+    "cache_ttl_seconds": 300,
+    "request_timeout_ms": 30000
+  },
+  "tools": {
+    "store_context": {
+      "enabled": true,
+      "max_content_size": 1048576,
+      "allowed_context_types": ["*"]
+    },
+    "retrieve_context": {
+      "enabled": true,
+      "max_results": 100,
+      "default_limit": 10
+    },
+    "search_context": {
+      "enabled": true,
+      "max_results": 100,
+      "default_limit": 10
+    },
+    "delete_context": {
+      "enabled": false,
+      "max_results": 100,
+      "default_limit": 10
+    },
+    "list_context_types": {
+      "enabled": true,
+      "max_results": 100,
+      "default_limit": 10
+    }
+  }
+}
