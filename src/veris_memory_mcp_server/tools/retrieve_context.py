@@ -180,9 +180,13 @@ class RetrieveContextTool(BaseTool):
         formatted = []
 
         for context in contexts:
+            # Extract type from content or use default
+            content = context.get("content", {})
+            context_type = content.get("type") if isinstance(content, dict) else "unknown"
+            
             formatted_context = {
                 "id": context.get("id", "unknown"),
-                "type": context.get("context_type", "unknown"),
+                "type": context_type,
                 "title": self._extract_title(context),
                 "summary": self._extract_summary(context),
                 "metadata": context.get("metadata", {}),
@@ -217,9 +221,17 @@ class RetrieveContextTool(BaseTool):
                     return str(content[field])[:100]  # Limit title length
 
         # Fallback to context type and ID
-        context_type = context.get("context_type", "Context")
+        # Try to get type from content.type since contexts don't have context_type field
+        content_type = content.get("type", "Context") if isinstance(content, dict) else "Context"
         context_id = context.get("id", "unknown")
-        return f"{context_type.title()} ({context_id[:8]})"
+        # Handle the case where context_id might not be sliceable
+        if isinstance(context_id, str) and len(context_id) > 8:
+            context_id = context_id[:8]
+        # Handle case where content_type might be None
+        if content_type and isinstance(content_type, str):
+            return f"{content_type.title()} ({context_id})"
+        else:
+            return f"Context ({context_id})"
 
     def _extract_summary(self, context: Dict[str, Any]) -> str:
         """Extract summary from context."""
@@ -272,7 +284,9 @@ class RetrieveContextTool(BaseTool):
         if contexts:
             for i, context in enumerate(contexts[:3]):  # Show top 3
                 title = self._extract_title(context)
-                context_type = context.get("context_type", "unknown")
+                # Get type from content.type field
+                content = context.get("content", {})
+                context_type = content.get("type", "unknown") if isinstance(content, dict) else "unknown"
                 summary += f"\n{i+1}. [{context_type}] {title}"
 
         if count > 3:

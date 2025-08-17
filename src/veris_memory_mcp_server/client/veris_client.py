@@ -205,7 +205,7 @@ class VerisMemoryClient:
                 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{self._base_url}/api/v1/context/retrieve",
+                    f"{self._base_url}/tools/retrieve_context",
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {self.config.veris_memory.api_key}",
@@ -214,7 +214,8 @@ class VerisMemoryClient:
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        contexts = result.get("contexts", [])
+                        # The API returns 'results' not 'contexts'
+                        contexts = result.get("results", [])
                         logger.info(
                             "Contexts retrieved successfully",
                             query=query,
@@ -272,8 +273,9 @@ class VerisMemoryClient:
                 payload["filters"] = filters
                 
             async with aiohttp.ClientSession() as session:
+                # Use retrieve_context endpoint for search (no dedicated search endpoint)
                 async with session.post(
-                    f"{self._base_url}/api/v1/context/search",
+                    f"{self._base_url}/tools/retrieve_context",
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {self.config.veris_memory.api_key}",
@@ -282,6 +284,7 @@ class VerisMemoryClient:
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
+                        # Return the full result including results, total_count, etc.
                         logger.info(
                             "Context search completed",
                             query=query,
