@@ -63,9 +63,14 @@ class ToolResult:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> "ToolResult":
         """Create a successful result with text content."""
+        # MCP specification: content should be text only for tool responses
         content = [{"type": "text", "text": text}]
+        
+        # If there's structured data, include it in the text response as JSON
         if data:
-            content.append({"type": "resource", "resource": data})
+            import json
+            data_text = f"\n\nStructured Data:\n```json\n{json.dumps(data, indent=2)}\n```"
+            content[0]["text"] += data_text
 
         return cls(content=content, is_error=False, metadata=metadata)
 
@@ -77,24 +82,15 @@ class ToolResult:
         details: Optional[Dict[str, Any]] = None,
     ) -> "ToolResult":
         """Create an error result."""
-        content = [
-            {
-                "type": "text",
-                "text": f"Error: {message}",
-            }
-        ]
-
+        error_text = f"Error: {message}"
+        
+        # Include details in the text response if provided
         if details:
-            content.append(
-                {
-                    "type": "resource",
-                    "resource": {
-                        "error_code": error_code,
-                        "details": details,
-                    },
-                }
-            )
-
+            import json
+            details_text = f"\n\nError Details:\n```json\n{json.dumps({'error_code': error_code, 'details': details}, indent=2)}\n```"
+            error_text += details_text
+            
+        content = [{"type": "text", "text": error_text}]
         return cls(content=content, is_error=True)
 
     @classmethod
@@ -105,11 +101,9 @@ class ToolResult:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> "ToolResult":
         """Create a result with structured data."""
-        content = [
-            {"type": "text", "text": description},
-            {"type": "resource", "resource": data},
-        ]
-
+        import json
+        data_text = f"{description}\n\n```json\n{json.dumps(data, indent=2)}\n```"
+        content = [{"type": "text", "text": data_text}]
         return cls(content=content, is_error=False, metadata=metadata)
 
     def to_dict(self) -> Dict[str, Any]:
