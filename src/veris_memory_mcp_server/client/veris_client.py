@@ -188,34 +188,46 @@ class VerisMemoryClient:
         await self._ensure_connected()
 
         try:
-            arguments = {
+            # Use direct HTTP call to Veris Memory API
+            import aiohttp
+            
+            payload = {
                 "query": query,
                 "limit": limit,
+                "user_id": user_id or self.config.veris_memory.user_id,
             }
-
+            
             if context_type:
-                arguments["context_type"] = context_type
-
+                payload["context_type"] = context_type
+                
             if metadata_filters:
-                arguments["metadata_filters"] = metadata_filters
+                payload["metadata_filters"] = metadata_filters
+                
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self._base_url}/api/v1/context/retrieve",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.config.veris_memory.api_key}",
+                        "Content-Type": "application/json",
+                    }
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        contexts = result.get("contexts", [])
+                        logger.info(
+                            "Contexts retrieved successfully",
+                            query=query,
+                            count=len(contexts),
+                        )
+                        return contexts
+                    else:
+                        error_text = await resp.text()
+                        raise VerisMemoryClientError(
+                            f"Retrieve failed with status {resp.status}: {error_text}"
+                        )
 
-            result = await self._client.call_tool(
-                tool_name="retrieve_context",
-                arguments=arguments,
-                user_id=user_id or self.config.veris_memory.user_id,
-            )
-
-            contexts = result.get("contexts", [])
-
-            logger.info(
-                "Contexts retrieved successfully",
-                query=query,
-                result_count=len(contexts),
-            )
-
-            return contexts
-
-        except SDKMCPError as e:
+        except aiohttp.ClientError as e:
             logger.error("Failed to retrieve contexts", error=str(e))
             raise VerisMemoryClientError(
                 f"Failed to retrieve contexts: {str(e)}",
@@ -247,29 +259,42 @@ class VerisMemoryClient:
         await self._ensure_connected()
 
         try:
-            arguments = {
+            # Use direct HTTP call to Veris Memory API
+            import aiohttp
+            
+            payload = {
                 "query": query,
                 "limit": limit,
+                "user_id": user_id or self.config.veris_memory.user_id,
             }
-
+            
             if filters:
-                arguments["filters"] = filters
+                payload["filters"] = filters
+                
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self._base_url}/api/v1/context/search",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.config.veris_memory.api_key}",
+                        "Content-Type": "application/json",
+                    }
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        logger.info(
+                            "Context search completed",
+                            query=query,
+                            result_count=len(result.get("results", [])),
+                        )
+                        return result
+                    else:
+                        error_text = await resp.text()
+                        raise VerisMemoryClientError(
+                            f"Search failed with status {resp.status}: {error_text}"
+                        )
 
-            result = await self._client.call_tool(
-                tool_name="search_context",
-                arguments=arguments,
-                user_id=user_id or self.config.veris_memory.user_id,
-            )
-
-            logger.info(
-                "Context search completed",
-                query=query,
-                result_count=len(result.get("results", [])),
-            )
-
-            return result
-
-        except SDKMCPError as e:
+        except aiohttp.ClientError as e:
             logger.error("Failed to search contexts", error=str(e))
             raise VerisMemoryClientError(
                 f"Failed to search contexts: {str(e)}",
