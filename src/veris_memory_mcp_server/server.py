@@ -8,7 +8,7 @@ Claude CLI integration with Veris Memory.
 import asyncio
 import signal
 import sys
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import structlog
 
