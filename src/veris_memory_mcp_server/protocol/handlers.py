@@ -205,10 +205,19 @@ class MCPHandler:
             logger.error(f"!!!!! CALLING EXECUTOR WITH: {arguments} !!!!!")
             result = await executor(arguments)
             logger.error(f"!!!!! RESULT: {result} !!!!!")
+            logger.error(f"!!!!! RESULT TYPE: {type(result)} !!!!!")
 
+            # Import ToolResult to check for it
+            from ..tools.base import ToolResult
+            
             # Format result for MCP response
-            if isinstance(result, dict) and "content" in result:
-                # Already properly formatted
+            if isinstance(result, ToolResult):
+                # Convert ToolResult to dict format
+                result_dict = result.to_dict()
+                content = result_dict["content"]
+                is_error = result_dict.get("isError", False)
+            elif isinstance(result, dict) and "content" in result:
+                # Already properly formatted as dict
                 content = result["content"]
                 is_error = result.get("isError", False)
             else:
