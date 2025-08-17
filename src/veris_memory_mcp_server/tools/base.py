@@ -6,7 +6,7 @@ including validation, error handling, and result formatting.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import structlog
 from pydantic import BaseModel, ValidationError
@@ -249,7 +249,7 @@ class BaseTool(ABC):
         self,
         name: str,
         value: Any,
-        definition: ToolParameter,
+        definition: Union[ToolParameter, Dict[str, Any]],
     ) -> None:
         """
         Validate a single parameter.
@@ -257,13 +257,19 @@ class BaseTool(ABC):
         Args:
             name: Parameter name
             value: Parameter value
-            definition: Parameter definition
+            definition: Parameter definition (ToolParameter or dict)
 
         Raises:
             ToolValidationError: If validation fails
         """
+        # Handle both ToolParameter objects and plain dicts
+        if isinstance(definition, dict):
+            param_type = definition.get("type")
+        else:
+            param_type = definition.type
+            
         # Type validation
-        if definition.type == "string" and not isinstance(value, str):
+        if param_type == "string" and not isinstance(value, str):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a string",
                 details={
@@ -272,7 +278,7 @@ class BaseTool(ABC):
                     "actual_type": type(value).__name__,
                 },
             )
-        elif definition.type == "number" and not isinstance(value, (int, float)):
+        elif param_type == "number" and not isinstance(value, (int, float)):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a number",
                 details={
@@ -281,7 +287,7 @@ class BaseTool(ABC):
                     "actual_type": type(value).__name__,
                 },
             )
-        elif definition.type == "integer" and not isinstance(value, int):
+        elif param_type == "integer" and not isinstance(value, int):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an integer",
                 details={
@@ -290,7 +296,7 @@ class BaseTool(ABC):
                     "actual_type": type(value).__name__,
                 },
             )
-        elif definition.type == "boolean" and not isinstance(value, bool):
+        elif param_type == "boolean" and not isinstance(value, bool):
             raise ToolValidationError(
                 f"Parameter '{name}' must be a boolean",
                 details={
@@ -299,7 +305,7 @@ class BaseTool(ABC):
                     "actual_type": type(value).__name__,
                 },
             )
-        elif definition.type == "object" and not isinstance(value, dict):
+        elif param_type == "object" and not isinstance(value, dict):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an object",
                 details={
@@ -308,7 +314,7 @@ class BaseTool(ABC):
                     "actual_type": type(value).__name__,
                 },
             )
-        elif definition.type == "array" and not isinstance(value, list):
+        elif param_type == "array" and not isinstance(value, list):
             raise ToolValidationError(
                 f"Parameter '{name}' must be an array",
                 details={
@@ -319,12 +325,13 @@ class BaseTool(ABC):
             )
 
         # Enum validation
-        if definition.enum and value not in definition.enum:
+        enum_values = definition.get("enum") if isinstance(definition, dict) else definition.enum
+        if enum_values and value not in enum_values:
             raise ToolValidationError(
-                f"Parameter '{name}' must be one of: {definition.enum}",
+                f"Parameter '{name}' must be one of: {enum_values}",
                 details={
                     "parameter": name,
-                    "allowed_values": definition.enum,
+                    "allowed_values": enum_values,
                     "actual_value": value,
                 },
             )
