@@ -78,14 +78,28 @@ class StdioTransport:
             message: Message to send
         """
         try:
-            message_dict = message.dict(exclude_unset=False)
+            # Use our custom dict() method which properly handles JSON-RPC 2.0 format
+            message_dict = message.dict()
             message_json = json.dumps(message_dict, separators=(",", ":"))
+
+            # ULTRA DEBUG: Log exact message being sent
+            logger.info(
+                "ULTRA DEBUG: Sending exact JSON",
+                message_type=type(message).__name__,
+                message_id=getattr(message, 'id', 'no-id'),
+                message_json=message_json,
+                message_dict=message_dict
+            )
 
             # Write to stdout with newline - ensure immediate flush
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._write_stdout_sync, message_json)
 
-            logger.debug("Sent message", message_type=type(message).__name__)
+            logger.info(
+                "ULTRA DEBUG: Message sent to stdout successfully",
+                message_type=type(message).__name__,
+                message_id=getattr(message, 'id', 'no-id')
+            )
 
         except Exception as e:
             logger.error("Failed to send message", error=str(e), exc_info=True)

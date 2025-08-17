@@ -82,6 +82,21 @@ class MCPResponse(MCPMessage):
     result: Optional[Dict[str, Any]] = Field(default=None, description="Response result")
     error: Optional[Dict[str, Any]] = Field(default=None, description="Error information")
 
+    def dict(self, **kwargs) -> Dict[str, Any]:
+        """Override dict to properly handle JSON-RPC 2.0 response format."""
+        # Get base dict with exclude_unset=False to keep jsonrpc field
+        result = super().dict(exclude_unset=False, **kwargs)
+        
+        # JSON-RPC 2.0: Response must have either result OR error, never both
+        if self.error is not None:
+            # Error response - remove result field
+            result.pop("result", None)
+        else:
+            # Success response - remove error field
+            result.pop("error", None)
+            
+        return result
+
 
 class MCPNotification(MCPMessage):
     """Base class for MCP notifications (no response expected)."""
