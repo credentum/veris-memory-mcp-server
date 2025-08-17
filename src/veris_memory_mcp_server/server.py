@@ -248,7 +248,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.store_context.dict(),
             )
             self._tools["store_context"] = store_tool
-            self.mcp_handler.register_tool(store_tool.get_schema(), store_tool)
+            self.mcp_handler.register_tool(store_tool.get_schema(), store_tool.execute)
             logger.debug("Registered store_context tool")
 
         # Retrieve Context Tool
@@ -258,7 +258,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.retrieve_context.dict(),
             )
             self._tools["retrieve_context"] = retrieve_tool
-            self.mcp_handler.register_tool(retrieve_tool.get_schema(), retrieve_tool)
+            self.mcp_handler.register_tool(retrieve_tool.get_schema(), retrieve_tool.execute)
             logger.debug("Registered retrieve_context tool")
 
         # Search Context Tool
@@ -268,7 +268,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.search_context.dict(),
             )
             self._tools["search_context"] = search_tool
-            self.mcp_handler.register_tool(search_tool.get_schema(), search_tool)
+            self.mcp_handler.register_tool(search_tool.get_schema(), search_tool.execute)
             logger.debug("Registered search_context tool")
 
         # Delete Context Tool
@@ -278,7 +278,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.delete_context.dict(),
             )
             self._tools["delete_context"] = delete_tool
-            self.mcp_handler.register_tool(delete_tool.get_schema(), delete_tool)
+            self.mcp_handler.register_tool(delete_tool.get_schema(), delete_tool.execute)
             logger.debug("Registered delete_context tool")
 
         # List Context Types Tool
@@ -288,7 +288,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.list_context_types.dict(),
             )
             self._tools["list_context_types"] = list_tool
-            self.mcp_handler.register_tool(list_tool.get_schema(), list_tool)
+            self.mcp_handler.register_tool(list_tool.get_schema(), list_tool.execute)
             logger.debug("Registered list_context_types tool")
 
         # Advanced streaming tools
@@ -302,7 +302,7 @@ class VerisMemoryMCPServer:
                 )
                 self._tools["streaming_search"] = streaming_search_tool
                 self.mcp_handler.register_tool(
-                    streaming_search_tool.get_schema(), streaming_search_tool
+                    streaming_search_tool.get_schema(), streaming_search_tool.execute
                 )
                 logger.debug("Registered streaming_search tool")
 
@@ -314,7 +314,7 @@ class VerisMemoryMCPServer:
                     self.config.tools.batch_operations.dict(),
                 )
                 self._tools["batch_operations"] = batch_ops_tool
-                self.mcp_handler.register_tool(batch_ops_tool.get_schema(), batch_ops_tool)
+                self.mcp_handler.register_tool(batch_ops_tool.get_schema(), batch_ops_tool.execute)
                 logger.debug("Registered batch_operations tool")
 
         # Webhook management tools
@@ -326,7 +326,7 @@ class VerisMemoryMCPServer:
                     self.config.tools.webhook_management.dict(),
                 )
                 self._tools["webhook_management"] = webhook_mgmt_tool
-                self.mcp_handler.register_tool(webhook_mgmt_tool.get_schema(), webhook_mgmt_tool)
+                self.mcp_handler.register_tool(webhook_mgmt_tool.get_schema(), webhook_mgmt_tool.execute)
                 logger.debug("Registered webhook_management tool")
 
             # Event Notification Tool
@@ -336,7 +336,7 @@ class VerisMemoryMCPServer:
                     self.config.tools.event_notification.dict(),
                 )
                 self._tools["event_notification"] = event_notif_tool
-                self.mcp_handler.register_tool(event_notif_tool.get_schema(), event_notif_tool)
+                self.mcp_handler.register_tool(event_notif_tool.get_schema(), event_notif_tool.execute)
                 logger.debug("Registered event_notification tool")
 
         # Analytics tools
@@ -348,7 +348,7 @@ class VerisMemoryMCPServer:
                     self.config.tools.analytics.dict(),
                 )
                 self._tools["analytics"] = analytics_tool
-                self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool)
+                self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool.execute)
                 logger.debug("Registered analytics tool")
 
             # Metrics Tool
@@ -358,7 +358,7 @@ class VerisMemoryMCPServer:
                     self.config.tools.metrics.dict(),
                 )
                 self._tools["metrics"] = metrics_tool
-                self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool)
+                self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool.execute)
                 logger.debug("Registered metrics tool")
 
         logger.info(
