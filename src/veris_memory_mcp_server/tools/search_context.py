@@ -28,19 +28,18 @@ class SearchContextTool(BaseTool):
             parameters={
                 "query": self._create_parameter(
                     "string",
-                    "Search query for semantic matching",
-                    required=True,
+                    "Search query for semantic matching"
                 ),
                 "filters": self._create_parameter(
-                    "object",
-                    "Advanced search filters including date ranges, metadata, etc.",
-                    required=False,
+                    "object", 
+                    "Advanced search filters including date ranges, metadata, etc."
                 ),
                 "limit": self._create_parameter(
                     "integer",
                     f"Maximum results (1-{self.max_results})",
-                    required=False,
                     default=self.default_limit,
+                    minimum=1,
+                    maximum=self.max_results
                 ),
             },
             required=["query"],

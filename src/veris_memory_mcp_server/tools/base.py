@@ -342,21 +342,32 @@ class BaseTool(ABC):
         required: bool = False,
         enum: Optional[List[str]] = None,
         default: Optional[Any] = None,
-    ) -> ToolParameter:
-        """Helper to create parameter definitions."""
-        return ToolParameter(
-            type=param_type,
-            description=description,
-            enum=enum,
-            default=default,
-        )
+        minimum: Optional[float] = None,
+        maximum: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Helper to create JSON Schema parameter definitions."""
+        param = {
+            "type": param_type,
+            "description": description,
+        }
+        
+        if enum is not None:
+            param["enum"] = enum
+        if default is not None:
+            param["default"] = default
+        if minimum is not None:
+            param["minimum"] = minimum
+        if maximum is not None:
+            param["maximum"] = maximum
+            
+        return param
 
     def _create_schema(
         self,
-        parameters: Dict[str, ToolParameter],
+        parameters: Dict[str, Any],
         required: List[str],
     ) -> Tool:
-        """Helper to create tool schema."""
+        """Helper to create tool schema with proper JSON Schema format."""
         return Tool(
             name=self.name,
             description=self.description,
@@ -364,5 +375,6 @@ class BaseTool(ABC):
                 type="object",
                 properties=parameters,
                 required=required,
+                additionalProperties=False,
             ),
         )

@@ -122,20 +122,35 @@ class ServerInfo(BaseModel):
 
 # Tool structures
 class ToolParameter(BaseModel):
-    """Tool parameter definition."""
+    """Tool parameter definition following JSON Schema draft 2020-12."""
 
-    type: str = Field(description="Parameter type")
+    type: str = Field(description="Parameter type (string, integer, number, boolean, array, object)")
     description: Optional[str] = Field(default=None, description="Parameter description")
-    enum: Optional[List[str]] = Field(default=None, description="Allowed values")
+    enum: Optional[List[str]] = Field(default=None, description="Allowed values for enum types")
     default: Optional[Any] = Field(default=None, description="Default value")
+    minimum: Optional[float] = Field(default=None, description="Minimum value for numeric types")
+    maximum: Optional[float] = Field(default=None, description="Maximum value for numeric types")
+    items: Optional[Dict[str, Any]] = Field(default=None, description="Schema for array items")
+    properties: Optional[Dict[str, Any]] = Field(default=None, description="Properties for object types")
+    
+    def dict(self, **kwargs) -> Dict[str, Any]:
+        """Override dict to exclude None values for clean JSON Schema."""
+        result = super().dict(exclude_none=True, **kwargs)
+        return result
 
 
 class ToolSchema(BaseModel):
-    """Tool input schema definition."""
+    """Tool input schema definition following JSON Schema draft 2020-12."""
 
     type: str = Field(default="object", description="Schema type")
-    properties: Dict[str, ToolParameter] = Field(description="Tool parameters")
-    required: List[str] = Field(default_factory=list, description="Required parameters")
+    properties: Dict[str, Any] = Field(description="Tool parameters as JSON Schema properties")
+    required: List[str] = Field(default_factory=list, description="Required parameter names")
+    additionalProperties: bool = Field(default=False, description="Allow additional properties")
+    
+    def dict(self, **kwargs) -> Dict[str, Any]:
+        """Override dict to exclude None values for clean JSON Schema."""
+        result = super().dict(exclude_none=True, **kwargs)
+        return result
 
 
 class Tool(BaseModel):
