@@ -31,8 +31,7 @@ from .utils.logging import setup_logging
     help="Set logging level",
 )
 @click.option(
-    "--stdio",
-    is_flag=True,
+    "--stdio/--no-stdio",
     default=True,
     help="Use stdio transport for Claude CLI (default)",
 )

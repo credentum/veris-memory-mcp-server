@@ -135,8 +135,12 @@ class VerisMemoryMCPServer:
         logger.info("Starting Veris Memory MCP Server")
 
         try:
-            # Connect to Veris Memory
-            await self.veris_client.connect()
+            # Try to connect to Veris Memory (optional for development)
+            try:
+                await self.veris_client.connect()
+                logger.info("Successfully connected to Veris Memory API")
+            except Exception as e:
+                logger.warning(f"Could not connect to Veris Memory API (running in offline mode): {e}")
 
             # Start metrics collector if enabled
             if self.metrics_collector:
