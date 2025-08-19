@@ -347,26 +347,26 @@ class VerisMemoryMCPServer:
                 logger.debug("Registered event_notification tool")
 
         # Analytics tools
-        if self.analytics_engine:
-            # Analytics Tool
-            if self.config.tools.analytics.enabled:
-                analytics_tool = AnalyticsTool(
-                    self.analytics_engine,
-                    self.config.tools.analytics.dict(),
-                )
-                self._tools["analytics"] = analytics_tool
-                self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool.execute)
-                logger.debug("Registered analytics tool")
+        # Analytics and Metrics Tools - now use Veris Memory API client
+        # Analytics Tool
+        if self.config.tools.analytics.enabled:
+            analytics_tool = AnalyticsTool(
+                self.cached_client,  # Use API client instead of local engine
+                self.config.tools.analytics.dict(),
+            )
+            self._tools["analytics"] = analytics_tool
+            self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool.execute)
+            logger.debug("Registered analytics tool (using API client)")
 
-            # Metrics Tool
-            if self.config.tools.metrics.enabled:
-                metrics_tool = MetricsTool(
-                    self.metrics_collector,
-                    self.config.tools.metrics.dict(),
-                )
-                self._tools["metrics"] = metrics_tool
-                self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool.execute)
-                logger.debug("Registered metrics tool")
+        # Metrics Tool
+        if self.config.tools.metrics.enabled:
+            metrics_tool = MetricsTool(
+                self.cached_client,  # Use API client instead of local collector
+                self.config.tools.metrics.dict(),
+            )
+            self._tools["metrics"] = metrics_tool
+            self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool.execute)
+            logger.debug("Registered metrics tool (using API client)")
 
         logger.info(
             "Tools registered successfully",
