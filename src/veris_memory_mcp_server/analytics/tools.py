@@ -5,13 +5,10 @@ Provides tools for accessing usage analytics, performance metrics,
 and operational insights through the MCP interface.
 """
 
-import time
 from typing import Any, Dict
 
 from ..protocol.schemas import Tool
 from ..tools.base import BaseTool, ToolError, ToolResult
-from .collector import MetricsCollector
-from .engine import AnalyticsEngine
 from ..client.veris_client import VerisMemoryClient
 
 

@@ -110,16 +110,18 @@ class StreamingConfig(BaseModel):
 
 
 class AnalyticsConfig(BaseModel):
-    """Configuration for analytics and metrics collection."""
+    """Configuration for analytics tools (API client mode)."""
 
-    enabled: bool = Field(default=True, description="Enable analytics collection")
-    retention_seconds: int = Field(default=3600, description="Metrics retention period")
-    max_points_per_metric: int = Field(default=10000, description="Max points per metric")
-    aggregation_interval_seconds: int = Field(default=60, description="Aggregation interval")
-    cache_ttl_seconds: int = Field(default=300, description="Analytics cache TTL")
-    export_enabled: bool = Field(default=False, description="Enable metrics export")
-    export_endpoint: Optional[str] = Field(default=None, description="Metrics export endpoint")
-    export_interval_seconds: int = Field(default=300, description="Export interval")
+    enabled: bool = Field(default=True, description="Enable analytics tools")
+    cache_ttl_seconds: int = Field(default=300, description="Analytics API response cache TTL")
+    api_timeout_seconds: int = Field(default=30, description="API request timeout")
+    default_timeframe: str = Field(default="1h", description="Default analytics timeframe")
+    
+    # Removed local analytics settings (no longer needed):
+    # - retention_seconds: handled by API server
+    # - max_points_per_metric: handled by API server  
+    # - aggregation_interval_seconds: handled by API server
+    # - export settings: handled by API server
 
 
 class ToolsConfig(BaseModel):
