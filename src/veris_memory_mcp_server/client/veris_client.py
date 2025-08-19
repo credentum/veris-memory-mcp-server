@@ -416,6 +416,21 @@ class VerisMemoryClient:
         """
         await self._ensure_connected()
 
+        # Simple cache key for analytics requests
+        cache_key = f"analytics_{analytics_type}_{timeframe}_{include_recommendations}"
+        
+        # Check cache first (basic time-based caching)
+        if not hasattr(self, '_analytics_cache'):
+            self._analytics_cache = {}
+            self._cache_timestamps = {}
+        
+        cache_ttl = 30  # 30 seconds for analytics cache
+        current_time = __import__('time').time()
+        
+        if (cache_key in self._analytics_cache and 
+            current_time - self._cache_timestamps.get(cache_key, 0) < cache_ttl):
+            return self._analytics_cache[cache_key]
+
         try:
             import aiohttp
             
@@ -440,15 +455,21 @@ class VerisMemoryClient:
                         
                         # Transform API response to match MCP analytics format
                         if analytics_type == "usage_stats":
-                            return self._format_usage_stats(result, timeframe)
+                            formatted_result = self._format_usage_stats(result, timeframe)
                         elif analytics_type == "performance_insights":
-                            return self._format_performance_insights(result, timeframe)
+                            formatted_result = self._format_performance_insights(result, timeframe)
                         elif analytics_type == "real_time_metrics":
-                            return self._format_real_time_metrics(result)
+                            formatted_result = self._format_real_time_metrics(result)
                         elif analytics_type == "summary":
-                            return self._format_analytics_summary(result, timeframe)
+                            formatted_result = self._format_analytics_summary(result, timeframe)
                         else:
-                            return result
+                            formatted_result = result
+                        
+                        # Cache the result
+                        self._analytics_cache[cache_key] = formatted_result
+                        self._cache_timestamps[cache_key] = current_time
+                        
+                        return formatted_result
                     else:
                         error_text = await resp.text()
                         raise Exception(f"HTTP {resp.status}: {error_text}")
@@ -486,6 +507,21 @@ class VerisMemoryClient:
         """
         await self._ensure_connected()
 
+        # Simple cache key for metrics requests
+        cache_key = f"metrics_{action}_{metric_name}_{str(labels)}_{since_minutes}_{limit}"
+        
+        # Check cache first (basic time-based caching)
+        if not hasattr(self, '_metrics_cache'):
+            self._metrics_cache = {}
+            self._metrics_cache_timestamps = {}
+        
+        cache_ttl = 60  # 60 seconds for metrics cache (longer than analytics)
+        current_time = __import__('time').time()
+        
+        if (cache_key in self._metrics_cache and 
+            current_time - self._metrics_cache_timestamps.get(cache_key, 0) < cache_ttl):
+            return self._metrics_cache[cache_key]
+
         try:
             import aiohttp
             
@@ -499,7 +535,13 @@ class VerisMemoryClient:
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        return self._format_metrics_response(result, action, metric_name, labels, limit)
+                        formatted_result = self._format_metrics_response(result, action, metric_name, labels, limit)
+                        
+                        # Cache the result
+                        self._metrics_cache[cache_key] = formatted_result
+                        self._metrics_cache_timestamps[cache_key] = current_time
+                        
+                        return formatted_result
                     else:
                         error_text = await resp.text()
                         raise Exception(f"HTTP {resp.status}: {error_text}")
