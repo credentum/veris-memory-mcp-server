@@ -446,7 +446,7 @@ class VerisMemoryClient:
                     f"{self._base_url}/api/dashboard/analytics",
                     params={
                         "minutes": minutes,
-                        "include_insights": include_recommendations
+                        "include_insights": "true" if include_recommendations else "false"
                     },
                     headers={"Content-Type": "application/json"}
                 ) as resp:
@@ -530,7 +530,7 @@ class VerisMemoryClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{self._base_url}/api/dashboard/analytics",
-                    params={"minutes": since_minutes, "include_insights": True},
+                    params={"minutes": since_minutes, "include_insights": "true"},
                     headers={"Content-Type": "application/json"}
                 ) as resp:
                     if resp.status == 200:
