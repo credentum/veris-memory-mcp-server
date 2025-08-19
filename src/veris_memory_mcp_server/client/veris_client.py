@@ -394,6 +394,325 @@ class VerisMemoryClient:
             await self.disconnect()
             await self.connect()
 
+    async def get_analytics(
+        self,
+        analytics_type: str,
+        timeframe: str = "1h",
+        include_recommendations: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Get analytics data from Veris Memory API.
+
+        Args:
+            analytics_type: Type of analytics (usage_stats, performance_insights, real_time_metrics, summary)
+            timeframe: Time period for analytics (5m, 15m, 1h, 6h, 24h, 7d, 30d)
+            include_recommendations: Include performance recommendations
+
+        Returns:
+            Analytics data from API server
+
+        Raises:
+            VerisMemoryClientError: If analytics request fails
+        """
+        await self._ensure_connected()
+
+        # Simple cache key for analytics requests
+        cache_key = f"analytics_{analytics_type}_{timeframe}_{include_recommendations}"
+        
+        # Check cache first (basic time-based caching)
+        if not hasattr(self, '_analytics_cache'):
+            self._analytics_cache = {}
+            self._cache_timestamps = {}
+        
+        cache_ttl = 30  # 30 seconds for analytics cache
+        current_time = __import__('time').time()
+        
+        if (cache_key in self._analytics_cache and 
+            current_time - self._cache_timestamps.get(cache_key, 0) < cache_ttl):
+            return self._analytics_cache[cache_key]
+
+        try:
+            import aiohttp
+            
+            # Map timeframes to minutes for API
+            timeframe_minutes = {
+                "5m": 5, "15m": 15, "1h": 60, "6h": 360,
+                "24h": 1440, "7d": 10080, "30d": 43200
+            }
+            minutes = timeframe_minutes.get(timeframe, 60)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self._base_url}/api/dashboard/analytics",
+                    params={
+                        "minutes": minutes,
+                        "include_insights": include_recommendations
+                    },
+                    headers={"Content-Type": "application/json"}
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        
+                        # Transform API response to match MCP analytics format
+                        if analytics_type == "usage_stats":
+                            formatted_result = self._format_usage_stats(result, timeframe)
+                        elif analytics_type == "performance_insights":
+                            formatted_result = self._format_performance_insights(result, timeframe)
+                        elif analytics_type == "real_time_metrics":
+                            formatted_result = self._format_real_time_metrics(result)
+                        elif analytics_type == "summary":
+                            formatted_result = self._format_analytics_summary(result, timeframe)
+                        else:
+                            formatted_result = result
+                        
+                        # Cache the result
+                        self._analytics_cache[cache_key] = formatted_result
+                        self._cache_timestamps[cache_key] = current_time
+                        
+                        return formatted_result
+                    else:
+                        error_text = await resp.text()
+                        raise Exception(f"HTTP {resp.status}: {error_text}")
+
+        except Exception as e:
+            logger.error("Failed to get analytics", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to get analytics: {str(e)}",
+                original_error=e,
+            )
+
+    async def get_metrics(
+        self,
+        action: str,
+        metric_name: Optional[str] = None,
+        labels: Optional[Dict[str, str]] = None,
+        since_minutes: int = 60,
+        limit: int = 1000,
+    ) -> Dict[str, Any]:
+        """
+        Get metrics data from Veris Memory API.
+
+        Args:
+            action: Action to perform (list_metrics, get_metrics, collector_stats, aggregated_metrics)
+            metric_name: Optional metric name pattern
+            labels: Optional label filters
+            since_minutes: Get metrics from last N minutes
+            limit: Maximum number of metric points
+
+        Returns:
+            Metrics data from API server
+
+        Raises:
+            VerisMemoryClientError: If metrics request fails
+        """
+        await self._ensure_connected()
+
+        # Simple cache key for metrics requests
+        cache_key = f"metrics_{action}_{metric_name}_{str(labels)}_{since_minutes}_{limit}"
+        
+        # Check cache first (basic time-based caching)
+        if not hasattr(self, '_metrics_cache'):
+            self._metrics_cache = {}
+            self._metrics_cache_timestamps = {}
+        
+        cache_ttl = 60  # 60 seconds for metrics cache (longer than analytics)
+        current_time = __import__('time').time()
+        
+        if (cache_key in self._metrics_cache and 
+            current_time - self._metrics_cache_timestamps.get(cache_key, 0) < cache_ttl):
+            return self._metrics_cache[cache_key]
+
+        try:
+            import aiohttp
+            
+            # For now, return metrics derived from analytics data
+            # In the future, this could be a separate metrics endpoint
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self._base_url}/api/dashboard/analytics",
+                    params={"minutes": since_minutes, "include_insights": True},
+                    headers={"Content-Type": "application/json"}
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        formatted_result = self._format_metrics_response(result, action, metric_name, labels, limit)
+                        
+                        # Cache the result
+                        self._metrics_cache[cache_key] = formatted_result
+                        self._metrics_cache_timestamps[cache_key] = current_time
+                        
+                        return formatted_result
+                    else:
+                        error_text = await resp.text()
+                        raise Exception(f"HTTP {resp.status}: {error_text}")
+
+        except Exception as e:
+            logger.error("Failed to get metrics", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to get metrics: {str(e)}",
+                original_error=e,
+            )
+
+    def _format_usage_stats(self, api_data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
+        """Format API analytics data as usage stats."""
+        data = api_data.get("data", {})
+        analytics = data.get("analytics", {})
+        global_stats = analytics.get("global_request_stats", {})
+        
+        return {
+            "timeframe": timeframe,
+            "period": {
+                "start_time": api_data.get("timestamp", 0) - (3600 if timeframe == "1h" else 86400),
+                "end_time": api_data.get("timestamp", 0),
+                "duration_seconds": 3600 if timeframe == "1h" else 86400,
+            },
+            "operations": {
+                "total": global_stats.get("total_requests", 0),
+                "successful": global_stats.get("total_requests", 0) - global_stats.get("total_errors", 0),
+                "failed": global_stats.get("total_errors", 0),
+                "success_rate_percent": 100 - global_stats.get("error_rate_percent", 0),
+            },
+            "performance": {
+                "avg_response_time_ms": global_stats.get("avg_duration_ms", 0),
+                "p95_response_time_ms": global_stats.get("p95_duration_ms", 0),
+                "p99_response_time_ms": global_stats.get("p99_duration_ms", 0),
+            },
+            "context_operations": {
+                "stored": self._count_endpoint_requests(analytics, "store_context"),
+                "retrieved": self._count_endpoint_requests(analytics, "retrieve_context"),
+                "searched": self._count_endpoint_requests(analytics, "search_context"),
+                "deleted": 0,
+            },
+            "search": {
+                "total_queries": self._count_endpoint_requests(analytics, "retrieve_context"),
+                "avg_results_per_query": 0.0,
+            },
+            "streaming": {
+                "operations": 0,
+                "total_chunks": 0,
+            },
+            "webhooks": {
+                "delivered": 0,
+                "failed": 0,
+                "success_rate_percent": 0.0,
+            },
+            "errors": {
+                "breakdown": {},
+                "total_errors": global_stats.get("total_errors", 0),
+            },
+            "top_operations": []
+        }
+
+    def _format_performance_insights(self, api_data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
+        """Format API analytics data as performance insights."""
+        insights = api_data.get("insights", {})
+        
+        return {
+            "timeframe": timeframe,
+            "performance_score": 100.0 if insights.get("performance_status") == "healthy" else 
+                               50.0 if insights.get("performance_status") == "warning" else 0.0,
+            "insights": [
+                {
+                    "title": alert.get("message", ""),
+                    "severity": alert.get("severity", "info"),
+                    "category": alert.get("type", "general")
+                }
+                for alert in insights.get("alerts", [])
+            ],
+            "recommendations": [
+                {
+                    "title": rec,
+                    "priority": 8,
+                    "description": rec
+                }
+                for rec in insights.get("recommendations", [])
+            ],
+            "summary": {
+                "total_insights": len(insights.get("alerts", [])),
+                "total_recommendations": len(insights.get("recommendations", [])),
+                "high_priority_recommendations": len(insights.get("recommendations", [])),
+            }
+        }
+
+    def _format_real_time_metrics(self, api_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Format API analytics data as real-time metrics."""
+        data = api_data.get("data", {})
+        analytics = data.get("analytics", {})
+        global_stats = analytics.get("global_request_stats", {})
+        
+        return {
+            "timestamp": api_data.get("timestamp", 0),
+            "window_seconds": 300,
+            "operations_per_minute": global_stats.get("requests_per_minute", 0.0),
+            "avg_response_time_ms": global_stats.get("avg_duration_ms", 0),
+            "error_rate_percent": global_stats.get("error_rate_percent", 0.0),
+            "active_operations": 0,
+            "collector_stats": {
+                "running": True,
+                "uptime_seconds": 0,
+                "total_points_collected": global_stats.get("total_requests", 0),
+                "unique_metrics": len(analytics.get("endpoint_statistics", {})),
+                "active_operations": 0,
+                "aggregated_metrics": 0,
+                "configuration": {
+                    "retention_seconds": 3600,
+                    "max_points_per_metric": 10000,
+                    "aggregation_interval_seconds": 60,
+                },
+            },
+        }
+
+    def _format_analytics_summary(self, api_data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
+        """Format API analytics data as summary."""
+        usage_stats = self._format_usage_stats(api_data, timeframe)
+        performance_insights = self._format_performance_insights(api_data, timeframe)
+        real_time_metrics = self._format_real_time_metrics(api_data)
+        
+        return {
+            "usage_stats": usage_stats,
+            "performance_insights": performance_insights,
+            "real_time_metrics": real_time_metrics,
+            "summary": {
+                "timeframe": timeframe,
+                "performance_score": performance_insights["performance_score"],
+                "success_rate_percent": usage_stats["operations"]["success_rate_percent"],
+                "operations_per_minute": real_time_metrics["operations_per_minute"],
+            }
+        }
+
+    def _format_metrics_response(
+        self, api_data: Dict[str, Any], action: str, metric_name: Optional[str], 
+        labels: Optional[Dict[str, str]], limit: int
+    ) -> Dict[str, Any]:
+        """Format API analytics data as metrics response."""
+        if action == "collector_stats":
+            return self._format_real_time_metrics(api_data)["collector_stats"]
+        elif action == "list_metrics":
+            analytics = api_data.get("data", {}).get("analytics", {})
+            endpoints = analytics.get("endpoint_statistics", {})
+            return {
+                "metrics": list(endpoints.keys()),
+                "count": len(endpoints)
+            }
+        elif action == "get_metrics":
+            # Return trending data as metric points
+            analytics = api_data.get("data", {}).get("analytics", {})
+            trending = analytics.get("trending_data", [])
+            return {
+                "metrics": trending[:limit],
+                "count": len(trending)
+            }
+        else:
+            return {"action": action, "data": api_data}
+
+    def _count_endpoint_requests(self, analytics: Dict[str, Any], operation: str) -> int:
+        """Count requests for specific operation from endpoint statistics."""
+        endpoint_stats = analytics.get("endpoint_statistics", {})
+        for endpoint, stats in endpoint_stats.items():
+            if operation in endpoint.lower():
+                return stats.get("request_count", 0)
+        return 0
+
     @property
     def connected(self) -> bool:
         """Check if client is connected."""

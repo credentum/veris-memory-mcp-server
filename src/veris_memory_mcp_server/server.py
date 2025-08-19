@@ -12,8 +12,6 @@ from typing import Any, Dict, Optional
 
 import structlog
 
-from .analytics.collector import MetricsCollector
-from .analytics.engine import AnalyticsEngine
 from .analytics.tools import AnalyticsTool, MetricsTool
 from .client.veris_client import VerisMemoryClient
 from .config.settings import Config
@@ -83,16 +81,8 @@ class VerisMemoryMCPServer:
                 buffer_size=config.streaming.buffer_size,
             )
 
-        # Initialize analytics system if enabled
-        self.metrics_collector = None
-        self.analytics_engine = None
-        if config.analytics.enabled:
-            self.metrics_collector = MetricsCollector(
-                retention_seconds=config.analytics.retention_seconds,
-                max_points_per_metric=config.analytics.max_points_per_metric,
-                aggregation_interval_seconds=config.analytics.aggregation_interval_seconds,
-            )
-            self.analytics_engine = AnalyticsEngine(self.metrics_collector)
+        # Analytics are now handled via API client (no local analytics needed)
+        # Local metrics collection has been removed in favor of API-based analytics
 
         # Initialize webhook system if enabled
         self.webhook_manager = None
@@ -142,10 +132,8 @@ class VerisMemoryMCPServer:
             except Exception as e:
                 logger.warning(f"Could not connect to Veris Memory API (running in offline mode): {e}")
 
-            # Start metrics collector if enabled
-            if self.metrics_collector:
-                await self.metrics_collector.start()
-                logger.debug("Metrics collector started")
+            # Analytics are now handled via API client (no local startup needed)
+            logger.debug("Analytics configured to use API client")
 
             # Start webhook manager if enabled
             if self.webhook_manager:
@@ -170,7 +158,7 @@ class VerisMemoryMCPServer:
                 cache_enabled=self.cache is not None,
                 streaming_enabled=self.streaming_engine is not None,
                 webhooks_enabled=self.webhook_manager is not None,
-                analytics_enabled=self.analytics_engine is not None,
+                analytics_enabled=self.config.tools.analytics.enabled,
                 health_checks=len(self.health_checker.get_registered_checks()),
             )
 
@@ -197,10 +185,8 @@ class VerisMemoryMCPServer:
             await self.webhook_manager.stop()
             logger.debug("Webhook manager stopped")
 
-        # Stop metrics collector if enabled
-        if self.metrics_collector:
-            await self.metrics_collector.stop()
-            logger.debug("Metrics collector stopped")
+        # Analytics are now handled via API client (no local shutdown needed)
+        logger.debug("Analytics cleanup complete")
 
         # Disconnect from Veris Memory
         await self.veris_client.disconnect()
@@ -347,26 +333,26 @@ class VerisMemoryMCPServer:
                 logger.debug("Registered event_notification tool")
 
         # Analytics tools
-        if self.analytics_engine:
-            # Analytics Tool
-            if self.config.tools.analytics.enabled:
-                analytics_tool = AnalyticsTool(
-                    self.analytics_engine,
-                    self.config.tools.analytics.dict(),
-                )
-                self._tools["analytics"] = analytics_tool
-                self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool.execute)
-                logger.debug("Registered analytics tool")
+        # Analytics and Metrics Tools - now use Veris Memory API client
+        # Analytics Tool
+        if self.config.tools.analytics.enabled:
+            analytics_tool = AnalyticsTool(
+                self.cached_client,  # Use API client instead of local engine
+                self.config.tools.analytics.dict(),
+            )
+            self._tools["analytics"] = analytics_tool
+            self.mcp_handler.register_tool(analytics_tool.get_schema(), analytics_tool.execute)
+            logger.debug("Registered analytics tool (using API client)")
 
-            # Metrics Tool
-            if self.config.tools.metrics.enabled:
-                metrics_tool = MetricsTool(
-                    self.metrics_collector,
-                    self.config.tools.metrics.dict(),
-                )
-                self._tools["metrics"] = metrics_tool
-                self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool.execute)
-                logger.debug("Registered metrics tool")
+        # Metrics Tool
+        if self.config.tools.metrics.enabled:
+            metrics_tool = MetricsTool(
+                self.cached_client,  # Use API client instead of local collector
+                self.config.tools.metrics.dict(),
+            )
+            self._tools["metrics"] = metrics_tool
+            self.mcp_handler.register_tool(metrics_tool.get_schema(), metrics_tool.execute)
+            logger.debug("Registered metrics tool (using API client)")
 
         logger.info(
             "Tools registered successfully",
@@ -375,7 +361,7 @@ class VerisMemoryMCPServer:
             advanced_features={
                 "streaming": self.streaming_engine is not None,
                 "webhooks": self.webhook_manager is not None,
-                "analytics": self.analytics_engine is not None,
+                "analytics": self.config.tools.analytics.enabled,
             },
         )
 
@@ -463,11 +449,12 @@ class VerisMemoryMCPServer:
         if self.webhook_manager:
             basic_status["webhook_stats"] = self.webhook_manager.get_stats()
 
-        # Add analytics stats if available
-        if self.analytics_engine:
+        # Analytics stats are now available via API client tools
+        if self.config.tools.analytics.enabled:
             basic_status["analytics_stats"] = {
-                "metrics_collector": self.metrics_collector.get_stats(),
-                "real_time_metrics": await self.analytics_engine.get_real_time_metrics(),
+                "mode": "api_client",
+                "api_endpoint": f"{self.veris_client._base_url}/api/dashboard/analytics" if hasattr(self.veris_client, '_base_url') else "configured",
+                "status": "enabled"
             }
 
         # Combine with detailed health checks
