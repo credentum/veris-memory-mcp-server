@@ -60,8 +60,8 @@ def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
                     if attempt < max_retries - 1:
                         # Calculate delay with exponential backoff and jitter
                         delay = min(
-                            base_delay * (2**attempt) + random.uniform(0, 1), max_delay
-                        )  # nosec B311
+                            base_delay * (2**attempt) + random.uniform(0, 1), max_delay  # nosec B311
+                        )
                         logger.warning(
                             f"Request failed (attempt {attempt + 1}/{max_retries}), "
                             f"retrying in {delay:.2f}s: {str(e)}"
