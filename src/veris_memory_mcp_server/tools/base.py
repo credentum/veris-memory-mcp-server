@@ -65,10 +65,11 @@ class ToolResult:
         """Create a successful result with text content."""
         # MCP specification: content should be text only for tool responses
         content = [{"type": "text", "text": text}]
-        
+
         # If there's structured data, include it in the text response as JSON
         if data:
             import json
+
             data_text = f"\n\nStructured Data:\n```json\n{json.dumps(data, indent=2)}\n```"
             content[0]["text"] += data_text
 
@@ -83,13 +84,14 @@ class ToolResult:
     ) -> "ToolResult":
         """Create an error result."""
         error_text = f"Error: {message}"
-        
+
         # Include details in the text response if provided
         if details:
             import json
+
             details_text = f"\n\nError Details:\n```json\n{json.dumps({'error_code': error_code, 'details': details}, indent=2)}\n```"
             error_text += details_text
-            
+
         content = [{"type": "text", "text": error_text}]
         return cls(content=content, is_error=True)
 
@@ -102,6 +104,7 @@ class ToolResult:
     ) -> "ToolResult":
         """Create a result with structured data."""
         import json
+
         data_text = f"{description}\n\n```json\n{json.dumps(data, indent=2)}\n```"
         content = [{"type": "text", "text": data_text}]
         return cls(content=content, is_error=False, metadata=metadata)
@@ -267,7 +270,7 @@ class BaseTool(ABC):
             param_type = definition.get("type")
         else:
             param_type = definition.type
-            
+
         # Type validation
         if param_type == "string" and not isinstance(value, str):
             raise ToolValidationError(
@@ -351,7 +354,7 @@ class BaseTool(ABC):
             "type": param_type,
             "description": description,
         }
-        
+
         if enum is not None:
             param["enum"] = enum
         if default is not None:
@@ -360,7 +363,7 @@ class BaseTool(ABC):
             param["minimum"] = minimum
         if maximum is not None:
             param["maximum"] = maximum
-            
+
         return param
 
     def _create_schema(

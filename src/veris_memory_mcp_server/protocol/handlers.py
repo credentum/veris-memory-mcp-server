@@ -209,7 +209,7 @@ class MCPHandler:
 
             # Import ToolResult to check for it
             from ..tools.base import ToolResult
-            
+
             # Format result for MCP response
             if isinstance(result, ToolResult):
                 # Convert ToolResult to dict format

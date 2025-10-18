@@ -45,6 +45,7 @@ def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
         base_delay: Initial delay between retries in seconds
         max_delay: Maximum delay between retries in seconds
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -58,7 +59,9 @@ def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
 
                     if attempt < max_retries - 1:
                         # Calculate delay with exponential backoff and jitter
-                        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)  # nosec B311
+                        delay = min(
+                            base_delay * (2**attempt) + random.uniform(0, 1), max_delay
+                        )  # nosec B311
                         logger.warning(
                             f"Request failed (attempt {attempt + 1}/{max_retries}), "
                             f"retrying in {delay:.2f}s: {str(e)}"
@@ -71,6 +74,7 @@ def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -98,11 +102,12 @@ class VerisMemoryClient:
         self._session: Optional[Any] = None  # aiohttp.ClientSession
         try:
             import aiohttp
+
             self._connector = aiohttp.TCPConnector(
                 limit=100,  # Total connection limit
                 limit_per_host=30,  # Per-host connection limit
                 ttl_dns_cache=300,  # DNS cache timeout
-                enable_cleanup_closed=True
+                enable_cleanup_closed=True,
             )
         except ImportError:
             self._connector = None
@@ -120,8 +125,7 @@ class VerisMemoryClient:
 
                 # Create persistent session with connection pooling
                 self._session = aiohttp.ClientSession(
-                    connector=self._connector,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    connector=self._connector, timeout=aiohttp.ClientTimeout(total=30)
                 )
 
                 # Test connection to veris-memory service
@@ -189,27 +193,23 @@ class VerisMemoryClient:
             "sprint_summary": "sprint",
             "sprint_plan": "sprint",
             "sprint_retrospective": "sprint",
-
             # Technical/Design related
             "technical_implementation": "design",
             "architecture": "design",
             "implementation": "design",
             "documentation": "design",
             "specification": "design",
-
             # Decision related
             "future_work": "decision",
             "planning": "decision",
             "strategy": "decision",
             "proposal": "decision",
-
             # Log/Analysis related
             "risk_assessment": "log",
             "meeting_notes": "log",
             "analysis": "log",
             "report": "log",
             "observation": "log",
-
             # Trace/Debug related
             "knowledge": "trace",
             "context": "trace",
@@ -295,7 +295,7 @@ class VerisMemoryClient:
             async with self._session.post(
                 f"{self._base_url}/tools/store_context",
                 json=payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             ) as resp:
                 if resp.status == 200:
                     result = await resp.json()
@@ -364,7 +364,7 @@ class VerisMemoryClient:
             async with self._session.post(
                 f"{self._base_url}/tools/retrieve_context",
                 json=payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             ) as resp:
                 if resp.status == 200:
                     result = await resp.json()
@@ -416,16 +416,16 @@ class VerisMemoryClient:
         try:
             # Use direct HTTP call to Veris Memory API
             import aiohttp
-            
+
             payload = {
                 "query": query,
                 "limit": limit,
                 "user_id": user_id or self.config.veris_memory.user_id,
             }
-            
+
             if filters:
                 payload["filters"] = filters
-                
+
             async with aiohttp.ClientSession() as session:
                 # Use retrieve_context endpoint for search (no dedicated search endpoint)
                 async with session.post(
@@ -434,7 +434,7 @@ class VerisMemoryClient:
                     headers={
                         "Authorization": f"Bearer {self.config.veris_memory.api_key}",
                         "Content-Type": "application/json",
-                    }
+                    },
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
@@ -572,41 +572,48 @@ class VerisMemoryClient:
 
         # Simple cache key for analytics requests
         cache_key = f"analytics_{analytics_type}_{timeframe}_{include_recommendations}"
-        
+
         # Check cache first (basic time-based caching)
-        if not hasattr(self, '_analytics_cache'):
+        if not hasattr(self, "_analytics_cache"):
             self._analytics_cache = {}
             self._cache_timestamps = {}
-        
+
         cache_ttl = 30  # 30 seconds for analytics cache
-        current_time = __import__('time').time()
-        
-        if (cache_key in self._analytics_cache and 
-            current_time - self._cache_timestamps.get(cache_key, 0) < cache_ttl):
+        current_time = __import__("time").time()
+
+        if (
+            cache_key in self._analytics_cache
+            and current_time - self._cache_timestamps.get(cache_key, 0) < cache_ttl
+        ):
             return self._analytics_cache[cache_key]
 
         try:
             import aiohttp
-            
+
             # Map timeframes to minutes for API
             timeframe_minutes = {
-                "5m": 5, "15m": 15, "1h": 60, "6h": 360,
-                "24h": 1440, "7d": 10080, "30d": 43200
+                "5m": 5,
+                "15m": 15,
+                "1h": 60,
+                "6h": 360,
+                "24h": 1440,
+                "7d": 10080,
+                "30d": 43200,
             }
             minutes = timeframe_minutes.get(timeframe, 60)
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{self._base_url}/api/dashboard/analytics",
                     params={
                         "minutes": minutes,
-                        "include_insights": "true" if include_recommendations else "false"
+                        "include_insights": "true" if include_recommendations else "false",
                     },
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        
+
                         # Transform API response to match MCP analytics format
                         if analytics_type == "usage_stats":
                             formatted_result = self._format_usage_stats(result, timeframe)
@@ -618,11 +625,11 @@ class VerisMemoryClient:
                             formatted_result = self._format_analytics_summary(result, timeframe)
                         else:
                             formatted_result = result
-                        
+
                         # Cache the result
                         self._analytics_cache[cache_key] = formatted_result
                         self._cache_timestamps[cache_key] = current_time
-                        
+
                         return formatted_result
                     else:
                         error_text = await resp.text()
@@ -663,38 +670,42 @@ class VerisMemoryClient:
 
         # Simple cache key for metrics requests
         cache_key = f"metrics_{action}_{metric_name}_{str(labels)}_{since_minutes}_{limit}"
-        
+
         # Check cache first (basic time-based caching)
-        if not hasattr(self, '_metrics_cache'):
+        if not hasattr(self, "_metrics_cache"):
             self._metrics_cache = {}
             self._metrics_cache_timestamps = {}
-        
+
         cache_ttl = 60  # 60 seconds for metrics cache (longer than analytics)
-        current_time = __import__('time').time()
-        
-        if (cache_key in self._metrics_cache and 
-            current_time - self._metrics_cache_timestamps.get(cache_key, 0) < cache_ttl):
+        current_time = __import__("time").time()
+
+        if (
+            cache_key in self._metrics_cache
+            and current_time - self._metrics_cache_timestamps.get(cache_key, 0) < cache_ttl
+        ):
             return self._metrics_cache[cache_key]
 
         try:
             import aiohttp
-            
+
             # For now, return metrics derived from analytics data
             # In the future, this could be a separate metrics endpoint
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{self._base_url}/api/dashboard/analytics",
                     params={"minutes": since_minutes, "include_insights": "true"},
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        formatted_result = self._format_metrics_response(result, action, metric_name, labels, limit)
-                        
+                        formatted_result = self._format_metrics_response(
+                            result, action, metric_name, labels, limit
+                        )
+
                         # Cache the result
                         self._metrics_cache[cache_key] = formatted_result
                         self._metrics_cache_timestamps[cache_key] = current_time
-                        
+
                         return formatted_result
                     else:
                         error_text = await resp.text()
@@ -712,7 +723,7 @@ class VerisMemoryClient:
         data = api_data.get("data", {})
         analytics = data.get("analytics", {})
         global_stats = analytics.get("global_request_stats", {})
-        
+
         return {
             "timeframe": timeframe,
             "period": {
@@ -722,7 +733,8 @@ class VerisMemoryClient:
             },
             "operations": {
                 "total": global_stats.get("total_requests", 0),
-                "successful": global_stats.get("total_requests", 0) - global_stats.get("total_errors", 0),
+                "successful": global_stats.get("total_requests", 0)
+                - global_stats.get("total_errors", 0),
                 "failed": global_stats.get("total_errors", 0),
                 "success_rate_percent": 100 - global_stats.get("error_rate_percent", 0),
             },
@@ -754,38 +766,39 @@ class VerisMemoryClient:
                 "breakdown": {},
                 "total_errors": global_stats.get("total_errors", 0),
             },
-            "top_operations": []
+            "top_operations": [],
         }
 
-    def _format_performance_insights(self, api_data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
+    def _format_performance_insights(
+        self, api_data: Dict[str, Any], timeframe: str
+    ) -> Dict[str, Any]:
         """Format API analytics data as performance insights."""
         insights = api_data.get("insights", {})
-        
+
         return {
             "timeframe": timeframe,
-            "performance_score": 100.0 if insights.get("performance_status") == "healthy" else 
-                               50.0 if insights.get("performance_status") == "warning" else 0.0,
+            "performance_score": (
+                100.0
+                if insights.get("performance_status") == "healthy"
+                else 50.0 if insights.get("performance_status") == "warning" else 0.0
+            ),
             "insights": [
                 {
                     "title": alert.get("message", ""),
                     "severity": alert.get("severity", "info"),
-                    "category": alert.get("type", "general")
+                    "category": alert.get("type", "general"),
                 }
                 for alert in insights.get("alerts", [])
             ],
             "recommendations": [
-                {
-                    "title": rec,
-                    "priority": 8,
-                    "description": rec
-                }
+                {"title": rec, "priority": 8, "description": rec}
                 for rec in insights.get("recommendations", [])
             ],
             "summary": {
                 "total_insights": len(insights.get("alerts", [])),
                 "total_recommendations": len(insights.get("recommendations", [])),
                 "high_priority_recommendations": len(insights.get("recommendations", [])),
-            }
+            },
         }
 
     def _format_real_time_metrics(self, api_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -793,7 +806,7 @@ class VerisMemoryClient:
         data = api_data.get("data", {})
         analytics = data.get("analytics", {})
         global_stats = analytics.get("global_request_stats", {})
-        
+
         return {
             "timestamp": api_data.get("timestamp", 0),
             "window_seconds": 300,
@@ -821,7 +834,7 @@ class VerisMemoryClient:
         usage_stats = self._format_usage_stats(api_data, timeframe)
         performance_insights = self._format_performance_insights(api_data, timeframe)
         real_time_metrics = self._format_real_time_metrics(api_data)
-        
+
         return {
             "usage_stats": usage_stats,
             "performance_insights": performance_insights,
@@ -831,12 +844,16 @@ class VerisMemoryClient:
                 "performance_score": performance_insights["performance_score"],
                 "success_rate_percent": usage_stats["operations"]["success_rate_percent"],
                 "operations_per_minute": real_time_metrics["operations_per_minute"],
-            }
+            },
         }
 
     def _format_metrics_response(
-        self, api_data: Dict[str, Any], action: str, metric_name: Optional[str], 
-        labels: Optional[Dict[str, str]], limit: int
+        self,
+        api_data: Dict[str, Any],
+        action: str,
+        metric_name: Optional[str],
+        labels: Optional[Dict[str, str]],
+        limit: int,
     ) -> Dict[str, Any]:
         """Format API analytics data as metrics response."""
         if action == "collector_stats":
@@ -844,18 +861,12 @@ class VerisMemoryClient:
         elif action == "list_metrics":
             analytics = api_data.get("data", {}).get("analytics", {})
             endpoints = analytics.get("endpoint_statistics", {})
-            return {
-                "metrics": list(endpoints.keys()),
-                "count": len(endpoints)
-            }
+            return {"metrics": list(endpoints.keys()), "count": len(endpoints)}
         elif action == "get_metrics":
             # Return trending data as metric points
             analytics = api_data.get("data", {}).get("analytics", {})
             trending = analytics.get("trending_data", [])
-            return {
-                "metrics": trending[:limit],
-                "count": len(trending)
-            }
+            return {"metrics": trending[:limit], "count": len(trending)}
         else:
             return {"action": action, "data": api_data}
 

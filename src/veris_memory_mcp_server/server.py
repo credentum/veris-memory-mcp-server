@@ -130,7 +130,9 @@ class VerisMemoryMCPServer:
                 await self.veris_client.connect()
                 logger.info("Successfully connected to Veris Memory API")
             except Exception as e:
-                logger.warning(f"Could not connect to Veris Memory API (running in offline mode): {e}")
+                logger.warning(
+                    f"Could not connect to Veris Memory API (running in offline mode): {e}"
+                )
 
             # Analytics are now handled via API client (no local startup needed)
             logger.debug("Analytics configured to use API client")
@@ -250,7 +252,9 @@ class VerisMemoryMCPServer:
             self._tools["retrieve_context"] = retrieve_tool
             logger.error(f"!!!!! REGISTERING RETRIEVE TOOL: {type(retrieve_tool)} !!!!!")
             logger.error(f"!!!!! REGISTERING EXECUTOR: {type(retrieve_tool.execute)} !!!!!")
-            logger.error(f"!!!!! IS COROUTINE FUNCTION: {asyncio.iscoroutinefunction(retrieve_tool.execute)} !!!!!")
+            logger.error(
+                f"!!!!! IS COROUTINE FUNCTION: {asyncio.iscoroutinefunction(retrieve_tool.execute)} !!!!!"
+            )
             self.mcp_handler.register_tool(retrieve_tool.get_schema(), retrieve_tool.execute)
             logger.debug("Registered retrieve_context tool")
 
@@ -319,7 +323,9 @@ class VerisMemoryMCPServer:
                     self.config.tools.webhook_management.dict(),
                 )
                 self._tools["webhook_management"] = webhook_mgmt_tool
-                self.mcp_handler.register_tool(webhook_mgmt_tool.get_schema(), webhook_mgmt_tool.execute)
+                self.mcp_handler.register_tool(
+                    webhook_mgmt_tool.get_schema(), webhook_mgmt_tool.execute
+                )
                 logger.debug("Registered webhook_management tool")
 
             # Event Notification Tool
@@ -329,7 +335,9 @@ class VerisMemoryMCPServer:
                     self.config.tools.event_notification.dict(),
                 )
                 self._tools["event_notification"] = event_notif_tool
-                self.mcp_handler.register_tool(event_notif_tool.get_schema(), event_notif_tool.execute)
+                self.mcp_handler.register_tool(
+                    event_notif_tool.get_schema(), event_notif_tool.execute
+                )
                 logger.debug("Registered event_notification tool")
 
         # Analytics tools
@@ -453,8 +461,12 @@ class VerisMemoryMCPServer:
         if self.config.tools.analytics.enabled:
             basic_status["analytics_stats"] = {
                 "mode": "api_client",
-                "api_endpoint": f"{self.veris_client._base_url}/api/dashboard/analytics" if hasattr(self.veris_client, '_base_url') else "configured",
-                "status": "enabled"
+                "api_endpoint": (
+                    f"{self.veris_client._base_url}/api/dashboard/analytics"
+                    if hasattr(self.veris_client, "_base_url")
+                    else "configured"
+                ),
+                "status": "enabled",
             }
 
         # Combine with detailed health checks

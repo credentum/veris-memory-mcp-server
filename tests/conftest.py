@@ -6,7 +6,12 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from veris_memory_mcp_server.config.settings import Config, VerisMemoryConfig, ServerConfig, ToolsConfig
+from veris_memory_mcp_server.config.settings import (
+    Config,
+    VerisMemoryConfig,
+    ServerConfig,
+    ToolsConfig,
+)
 from veris_memory_mcp_server.client.veris_client import VerisMemoryClient
 
 
@@ -44,13 +49,13 @@ def mock_veris_client():
     """Create a mock Veris Memory client."""
     client = AsyncMock(spec=VerisMemoryClient)
     client.connected = True
-    
+
     # Mock typical responses
     client.store_context.return_value = {
         "context_id": "test-context-123",
         "created_at": "2024-01-01T00:00:00Z",
     }
-    
+
     client.retrieve_context.return_value = [
         {
             "id": "ctx-1",
@@ -61,24 +66,24 @@ def mock_veris_client():
             "relevance_score": 0.9,
         }
     ]
-    
+
     client.search_context.return_value = {
         "results": [],
         "total": 0,
         "query": "test",
     }
-    
+
     client.delete_context.return_value = {
         "deleted": True,
         "context_id": "test-context-123",
     }
-    
+
     client.list_context_types.return_value = [
         "decision",
-        "knowledge", 
+        "knowledge",
         "analysis",
     ]
-    
+
     return client
 
 
