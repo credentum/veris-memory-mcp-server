@@ -77,7 +77,7 @@ class RetrieveContextTool(BaseTool):
         """
         self.logger.error("!!!!! RETRIEVE_CONTEXT EXECUTE CALLED !!!!!")
         self.logger.error(f"!!!!! ARGUMENTS: {arguments} !!!!!")
-        
+
         query = arguments["query"]
         limit = arguments.get("limit", self.default_limit)
         context_type = arguments.get("context_type")
@@ -165,6 +165,7 @@ class RetrieveContextTool(BaseTool):
 
         except Exception as e:
             import traceback
+
             tb = traceback.format_exc()
             self.logger.error(f"!!!!! UNEXPECTED ERROR !!!!!")
             self.logger.error(f"!!!!! ERROR TYPE: {type(e)} !!!!!")
@@ -173,7 +174,7 @@ class RetrieveContextTool(BaseTool):
             raise ToolError(
                 f"Unexpected error retrieving contexts: {str(e)}",
                 code="internal_error",
-                details={"traceback": tb}
+                details={"traceback": tb},
             )
 
     def _format_contexts(self, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -192,7 +193,7 @@ class RetrieveContextTool(BaseTool):
             # Extract type from content or use default
             content = context.get("content", {})
             context_type = content.get("type") if isinstance(content, dict) else "unknown"
-            
+
             formatted_context = {
                 "id": context.get("id", "unknown"),
                 "type": context_type,
@@ -295,7 +296,9 @@ class RetrieveContextTool(BaseTool):
                 title = self._extract_title(context)
                 # Get type from content.type field
                 content = context.get("content", {})
-                context_type = content.get("type", "unknown") if isinstance(content, dict) else "unknown"
+                context_type = (
+                    content.get("type", "unknown") if isinstance(content, dict) else "unknown"
+                )
                 summary += f"\n{i+1}. [{context_type}] {title}"
 
         if count > 3:
