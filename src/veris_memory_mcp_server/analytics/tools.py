@@ -7,9 +7,9 @@ and operational insights through the MCP interface.
 
 from typing import Any, Dict
 
+from ..client.veris_client import VerisMemoryClient
 from ..protocol.schemas import Tool
 from ..tools.base import BaseTool, ToolError, ToolResult
-from ..client.veris_client import VerisMemoryClient
 
 
 class AnalyticsTool(BaseTool):

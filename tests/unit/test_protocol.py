@@ -2,17 +2,18 @@
 Unit tests for MCP protocol implementation.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from veris_memory_mcp_server.protocol.handlers import MCPHandler
 from veris_memory_mcp_server.protocol.schemas import (
+    MCPCallToolRequest,
     MCPInitializeRequest,
     MCPListToolsRequest,
-    MCPCallToolRequest,
     Tool,
-    ToolSchema,
     ToolParameter,
+    ToolSchema,
 )
 
 

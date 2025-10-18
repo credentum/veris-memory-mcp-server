@@ -4,9 +4,9 @@ Unit tests for MCP tools.
 
 import pytest
 
-from veris_memory_mcp_server.tools.store_context import StoreContextTool
-from veris_memory_mcp_server.tools.retrieve_context import RetrieveContextTool
 from veris_memory_mcp_server.tools.base import ToolError
+from veris_memory_mcp_server.tools.retrieve_context import RetrieveContextTool
+from veris_memory_mcp_server.tools.store_context import StoreContextTool
 
 
 class TestStoreContextTool:

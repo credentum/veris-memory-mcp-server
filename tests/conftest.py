@@ -3,16 +3,17 @@ Pytest configuration and fixtures for Veris Memory MCP Server tests.
 """
 
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from veris_memory_mcp_server.client.veris_client import VerisMemoryClient
 from veris_memory_mcp_server.config.settings import (
     Config,
-    VerisMemoryConfig,
     ServerConfig,
     ToolsConfig,
+    VerisMemoryConfig,
 )
-from veris_memory_mcp_server.client.veris_client import VerisMemoryClient
 
 
 @pytest.fixture

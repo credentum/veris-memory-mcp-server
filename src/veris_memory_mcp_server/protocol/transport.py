@@ -8,7 +8,7 @@ transport mechanisms for MCP message exchange.
 import asyncio
 import json
 import sys
-from typing import Any, Awaitable, AsyncIterator, Callable, Dict, Optional, Union
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, Union
 
 import structlog
 from pydantic import ValidationError
