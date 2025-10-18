@@ -6,6 +6,8 @@ within the MCP server, handling authentication and connection management.
 """
 
 import asyncio
+import random
+from functools import wraps
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -34,6 +36,44 @@ class VerisMemoryClientError(Exception):
         self.original_error = original_error
 
 
+def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
+    """
+    Decorator for retry with exponential backoff.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay between retries in seconds
+        max_delay: Maximum delay between retries in seconds
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            last_exception = None
+
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+
+                    if attempt < max_retries - 1:
+                        # Calculate delay with exponential backoff and jitter
+                        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+                        logger.warning(
+                            f"Request failed (attempt {attempt + 1}/{max_retries}), "
+                            f"retrying in {delay:.2f}s: {str(e)}"
+                        )
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.error(f"All retry attempts failed: {str(e)}")
+
+            # Re-raise the last exception if all retries failed
+            raise last_exception
+
+        return wrapper
+    return decorator
+
+
 class VerisMemoryClient:
     """
     Wrapper around Veris Memory SDK for MCP server use.
@@ -54,30 +94,51 @@ class VerisMemoryClient:
         self._connected = False
         self._connection_lock = asyncio.Lock()
 
+        # Add persistent session with connection pooling
+        self._session: Optional[Any] = None  # aiohttp.ClientSession
+        try:
+            import aiohttp
+            self._connector = aiohttp.TCPConnector(
+                limit=100,  # Total connection limit
+                limit_per_host=30,  # Per-host connection limit
+                ttl_dns_cache=300,  # DNS cache timeout
+                enable_cleanup_closed=True
+            )
+        except ImportError:
+            self._connector = None
+
     async def connect(self) -> None:
-        """Connect to Veris Memory API."""
+        """Connect to Veris Memory API with connection pooling."""
         async with self._connection_lock:
-            if self._connected and self._client:
+            if self._connected and self._session:
                 return
 
             try:
                 # For testing with local veris-memory service, use direct HTTP instead of SDK
                 # This avoids SDK security restrictions for private networks
                 import aiohttp
-                
+
+                # Create persistent session with connection pooling
+                self._session = aiohttp.ClientSession(
+                    connector=self._connector,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                )
+
                 # Test connection to veris-memory service
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(f"{self.config.veris_memory.api_url}/health") as resp:
-                        if resp.status == 200:
-                            self._connected = True
-                            logger.info("Connected to Veris Memory API via direct HTTP")
-                        else:
-                            raise Exception(f"Health check failed with status {resp.status}")
-                
+                async with self._session.get(f"{self.config.veris_memory.api_url}/health") as resp:
+                    if resp.status == 200:
+                        self._connected = True
+                        logger.info("Connected to Veris Memory API with connection pooling")
+                    else:
+                        raise Exception(f"Health check failed with status {resp.status}")
+
                 # Store connection info for later use
                 self._base_url = self.config.veris_memory.api_url
 
             except Exception as e:
+                if self._session:
+                    await self._session.close()
+                    self._session = None
                 logger.error("Failed to connect to Veris Memory API", error=str(e))
                 raise VerisMemoryClientError(
                     f"Failed to connect to Veris Memory: {str(e)}",
@@ -85,21 +146,107 @@ class VerisMemoryClient:
                 )
 
     async def disconnect(self) -> None:
-        """Disconnect from Veris Memory API."""
+        """Disconnect from Veris Memory API and clean up session."""
         async with self._connection_lock:
-            if self._connected:
+            if self._connected and self._session:
                 try:
+                    await self._session.close()
                     logger.info("Disconnected from Veris Memory API")
                 except Exception as e:
                     logger.warning("Error during disconnect", error=str(e))
                 finally:
                     self._connected = False
+                    self._session = None
 
     async def _ensure_connected(self) -> None:
         """Ensure connection is established."""
         if not self._connected:
             await self.connect()
 
+    def _map_context_type(self, context_type: str) -> str:
+        """
+        Map MCP context type to valid backend type.
+
+        Valid backend types per PR #159: design, decision, trace, sprint, log
+
+        Args:
+            context_type: Input context type from MCP
+
+        Returns:
+            Mapped type that matches backend requirements
+        """
+        # Valid backend types per PR #159
+        valid_types = ["design", "decision", "trace", "sprint", "log"]
+
+        # Direct match
+        if context_type in valid_types:
+            logger.debug(f"Context type '{context_type}' is already valid")
+            return context_type
+
+        # Common mappings for various context types
+        type_mappings = {
+            # Sprint related
+            "sprint_summary": "sprint",
+            "sprint_plan": "sprint",
+            "sprint_retrospective": "sprint",
+
+            # Technical/Design related
+            "technical_implementation": "design",
+            "architecture": "design",
+            "implementation": "design",
+            "documentation": "design",
+            "specification": "design",
+
+            # Decision related
+            "future_work": "decision",
+            "planning": "decision",
+            "strategy": "decision",
+            "proposal": "decision",
+
+            # Log/Analysis related
+            "risk_assessment": "log",
+            "meeting_notes": "log",
+            "analysis": "log",
+            "report": "log",
+            "observation": "log",
+
+            # Trace/Debug related
+            "knowledge": "trace",
+            "context": "trace",
+            "debug": "trace",
+            "history": "trace",
+        }
+
+        # Check explicit mappings
+        if context_type in type_mappings:
+            mapped = type_mappings[context_type]
+            logger.info(f"Mapped context type '{context_type}' to '{mapped}'")
+            return mapped
+
+        # Keyword-based mapping for unknown types
+        context_lower = context_type.lower()
+
+        if "sprint" in context_lower:
+            logger.info(f"Mapped '{context_type}' to 'sprint' based on keyword")
+            return "sprint"
+        elif any(word in context_lower for word in ["design", "implement", "architect", "spec"]):
+            logger.info(f"Mapped '{context_type}' to 'design' based on keyword")
+            return "design"
+        elif any(word in context_lower for word in ["decision", "plan", "strategy", "future"]):
+            logger.info(f"Mapped '{context_type}' to 'decision' based on keyword")
+            return "decision"
+        elif any(word in context_lower for word in ["trace", "debug", "history", "context"]):
+            logger.info(f"Mapped '{context_type}' to 'trace' based on keyword")
+            return "trace"
+        else:
+            # Default to log for unknown types
+            logger.warning(
+                f"Unknown context type '{context_type}', defaulting to 'log'. "
+                f"Valid types are: {valid_types}"
+            )
+            return "log"
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def store_context(
         self,
         context_type: str,
@@ -125,30 +272,41 @@ class VerisMemoryClient:
         await self._ensure_connected()
 
         try:
-            # Use direct HTTP call instead of SDK
-            import aiohttp
-            
+            # Map context_type to valid backend type
+            mapped_type = self._map_context_type(context_type)
+
+            # Store original type in metadata if it was mapped
+            if mapped_type != context_type:
+                if metadata is None:
+                    metadata = {}
+                metadata["original_type"] = context_type
+                logger.debug(f"Stored original type '{context_type}' in metadata")
+
+            # Build payload with correct field name ('type' not 'context_type')
             payload = {
                 "content": content,
-                "type": "log",
+                "type": mapped_type,  # FIX: Use mapped type, not hardcoded "log"
                 "metadata": metadata or {},
             }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self._base_url}/tools/store_context",
-                    json=payload,
-                    headers={"Content-Type": "application/json"}
-                ) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                    else:
-                        error_text = await resp.text()
-                        raise Exception(f"HTTP {resp.status}: {error_text}")
-                        
+
+            logger.debug(f"Sending store_context request with type='{mapped_type}'")
+
+            # Use persistent session instead of creating new one
+            async with self._session.post(
+                f"{self._base_url}/tools/store_context",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                else:
+                    error_text = await resp.text()
+                    raise Exception(f"HTTP {resp.status}: {error_text}")
+
             logger.info(
                 "Context stored successfully",
                 context_type=context_type,
+                mapped_type=mapped_type,
                 context_id=result.get("id"),
             )
 
@@ -188,47 +346,43 @@ class VerisMemoryClient:
         await self._ensure_connected()
 
         try:
-            # Use direct HTTP call to Veris Memory API
-            import aiohttp
-            
             payload = {
                 "query": query,
                 "limit": limit,
-                "user_id": user_id or self.config.veris_memory.user_id,
             }
-            
+
+            # Map context_type if provided
             if context_type:
-                payload["context_type"] = context_type
-                
+                mapped_type = self._map_context_type(context_type)
+                payload["type"] = mapped_type  # FIX: Use 'type' not 'context_type'
+                logger.debug(f"Filtering by type='{mapped_type}' (original: '{context_type}')")
+
             if metadata_filters:
                 payload["metadata_filters"] = metadata_filters
-                
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self._base_url}/tools/retrieve_context",
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {self.config.veris_memory.api_key}",
-                        "Content-Type": "application/json",
-                    }
-                ) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        # The API returns 'results' not 'contexts'
-                        contexts = result.get("results", [])
-                        logger.info(
-                            "Contexts retrieved successfully",
-                            query=query,
-                            count=len(contexts),
-                        )
-                        return contexts
-                    else:
-                        error_text = await resp.text()
-                        raise VerisMemoryClientError(
-                            f"Retrieve failed with status {resp.status}: {error_text}"
-                        )
 
-        except aiohttp.ClientError as e:
+            # Use persistent session instead of creating new one
+            async with self._session.post(
+                f"{self._base_url}/tools/retrieve_context",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    # The API returns 'results' not 'contexts'
+                    contexts = result.get("results", [])
+                    logger.info(
+                        "Contexts retrieved successfully",
+                        query=query,
+                        count=len(contexts),
+                    )
+                    return contexts
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Retrieve failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
             logger.error("Failed to retrieve contexts", error=str(e))
             raise VerisMemoryClientError(
                 f"Failed to retrieve contexts: {str(e)}",
