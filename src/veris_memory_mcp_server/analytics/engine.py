@@ -445,7 +445,7 @@ class AnalyticsEngine:
             insights.add_insight(
                 category="performance",
                 title="High Average Response Time",
-                description=f"Average response time is {stats.avg_response_time_ms:.0f}ms, which is above recommended thresholds",
+                description=f"Average response time is {stats.avg_response_time_ms:.0f}ms, which is above recommended thresholds",  # noqa: E501
                 severity="warning",
                 data={"avg_response_time_ms": stats.avg_response_time_ms},
             )
@@ -482,7 +482,7 @@ class AnalyticsEngine:
             insights.add_insight(
                 category="reliability",
                 title="High Error Rate",
-                description=f"Error rate is {error_rate:.1f}%, which exceeds recommended threshold of 5%",
+                description=f"Error rate is {error_rate:.1f}%, which exceeds recommended threshold of 5%",  # noqa: E501
                 severity="critical" if error_rate > 10 else "warning",
                 data={
                     "error_rate_percent": error_rate,
@@ -514,7 +514,7 @@ class AnalyticsEngine:
             insights.add_insight(
                 category="usage",
                 title="Low Search Result Rate",
-                description=f"Search queries return an average of {stats.avg_search_results:.1f} results",
+                description=f"Search queries return an average of {stats.avg_search_results:.1f} results",  # noqa: E501
                 severity="info",
                 data={"avg_search_results": stats.avg_search_results},
             )
@@ -547,7 +547,7 @@ class AnalyticsEngine:
         if stats.avg_response_time_ms > 1000:
             insights.add_recommendation(
                 title="Optimize Response Times",
-                description="Response times are higher than optimal. Consider caching and performance tuning.",
+                description="Response times are higher than optimal. Consider caching and performance tuning.",  # noqa: E501
                 impact="high",
                 effort="medium",
                 priority=8,

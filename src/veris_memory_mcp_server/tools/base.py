@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
 import structlog
-from pydantic import BaseModel, ValidationError
 
 from ..protocol.schemas import Tool, ToolParameter, ToolSchema
 
@@ -89,8 +88,8 @@ class ToolResult:
         if details:
             import json
 
-            details_text = f"\n\nError Details:\n```json\n{json.dumps({'error_code': error_code, 'details': details}, indent=2)}\n```"
-            error_text += details_text
+            details_text = f"\n\nError Details:\n```json\n{json.dumps({'error_code': error_code, 'details': details}, indent=2)}\n```"  # noqa: E501
+            error_text += details_text  # noqa: E501
 
         content = [{"type": "text", "text": error_text}]
         return cls(content=content, is_error=True)
@@ -156,7 +155,6 @@ class BaseTool(ABC):
         Returns:
             Tool schema for MCP protocol
         """
-        pass
 
     @abstractmethod
     async def execute(self, arguments: Dict[str, Any]) -> ToolResult:
@@ -172,7 +170,6 @@ class BaseTool(ABC):
         Raises:
             ToolError: If execution fails
         """
-        pass
 
     async def __call__(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """

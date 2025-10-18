@@ -5,7 +5,7 @@ Defines the JSON-RPC 2.0 message formats for the Model Context Protocol,
 including requests, responses, and error handling.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field

@@ -108,7 +108,7 @@ class AnalyticsTool(BaseTool):
             f"Usage Statistics for {timeframe}:",
             f"• Total Operations: {operations.get('total', 0):,}",
             f"• Success Rate: {operations.get('success_rate_percent', 0):.1f}%",
-            f"• Average Response Time: {stats_data.get('performance', {}).get('avg_response_time_ms', 0):.0f}ms",
+            f"• Average Response Time: {stats_data.get('performance', {}).get('avg_response_time_ms', 0):.0f}ms",  # noqa: E501
         ]
 
         if context_ops.get("stored", 0) > 0:

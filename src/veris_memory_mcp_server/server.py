@@ -8,7 +8,7 @@ Claude CLI integration with Veris Memory.
 import asyncio
 import signal
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import structlog
 
@@ -27,7 +27,6 @@ from .tools.search_context import SearchContextTool
 from .tools.store_context import StoreContextTool
 from .utils.cache import CachedVerisClient, MemoryCache
 from .utils.health import (
-    HealthChecker,
     create_cache_health_check,
     create_veris_client_health_check,
     create_veris_memory_health_checks,
@@ -253,8 +252,8 @@ class VerisMemoryMCPServer:
             logger.error(f"!!!!! REGISTERING RETRIEVE TOOL: {type(retrieve_tool)} !!!!!")
             logger.error(f"!!!!! REGISTERING EXECUTOR: {type(retrieve_tool.execute)} !!!!!")
             logger.error(
-                f"!!!!! IS COROUTINE FUNCTION: {asyncio.iscoroutinefunction(retrieve_tool.execute)} !!!!!"
-            )
+                f"!!!!! IS COROUTINE FUNCTION: {asyncio.iscoroutinefunction(retrieve_tool.execute)} !!!!!"  # noqa: E501
+            )  # noqa: E501
             self.mcp_handler.register_tool(retrieve_tool.get_schema(), retrieve_tool.execute)
             logger.debug("Registered retrieve_context tool")
 

@@ -42,7 +42,7 @@ class StoreContextTool(BaseTool):
             parameters={
                 "context_type": self._create_parameter(
                     "string",
-                    "Type of context being stored (e.g., 'decision', 'knowledge', 'analysis', 'meeting_notes')",
+                    "Type of context being stored (e.g., 'decision', 'knowledge', 'analysis', 'meeting_notes')",  # noqa: E501
                     required=True,
                     enum=None if "*" in self.allowed_context_types else self.allowed_context_types,
                 ),
@@ -53,7 +53,7 @@ class StoreContextTool(BaseTool):
                 ),
                 "metadata": self._create_parameter(
                     "object",
-                    "Optional metadata for categorization and search (e.g., project, priority, tags)",
+                    "Optional metadata for categorization and search (e.g., project, priority, tags)",  # noqa: E501
                     required=False,
                 ),
                 "title": self._create_parameter(

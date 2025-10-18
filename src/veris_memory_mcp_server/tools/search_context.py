@@ -60,7 +60,7 @@ class SearchContextTool(BaseTool):
             )
 
             return ToolResult.success(
-                text=f"Search completed for '{query}' with {len(result.get('results', []))} results",
+                text=f"Search completed for '{query}' with {len(result.get('results', []))} results",  # noqa: E501
                 data=result,
                 metadata={
                     "operation": "search_context",

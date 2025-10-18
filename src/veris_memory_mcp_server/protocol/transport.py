@@ -21,8 +21,6 @@ logger = structlog.get_logger(__name__)
 class TransportError(Exception):
     """Base exception for transport errors."""
 
-    pass
-
 
 class StdioTransport:
     """

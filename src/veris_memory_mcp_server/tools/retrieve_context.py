@@ -47,7 +47,7 @@ class RetrieveContextTool(BaseTool):
                 ),
                 "limit": self._create_parameter(
                     "integer",
-                    f"Maximum number of results to return (1-{self.max_results}, default: {self.default_limit})",
+                    f"Maximum number of results to return (1-{self.max_results}, default: {self.default_limit})",  # noqa: E501
                     required=False,
                     default=self.default_limit,
                 ),
@@ -58,7 +58,7 @@ class RetrieveContextTool(BaseTool):
                 ),
                 "metadata_filters": self._create_parameter(
                     "object",
-                    "Filter results by metadata key-value pairs (e.g., {'project': 'api-v2', 'priority': 'high'})",
+                    "Filter results by metadata key-value pairs (e.g., {'project': 'api-v2', 'priority': 'high'})",  # noqa: E501
                     required=False,
                 ),
             },
@@ -167,7 +167,7 @@ class RetrieveContextTool(BaseTool):
             import traceback
 
             tb = traceback.format_exc()
-            self.logger.error(f"!!!!! UNEXPECTED ERROR !!!!!")
+            self.logger.error("!!!!! UNEXPECTED ERROR !!!!!")
             self.logger.error(f"!!!!! ERROR TYPE: {type(e)} !!!!!")
             self.logger.error(f"!!!!! ERROR VALUE: {str(e)} !!!!!")
             self.logger.error(f"!!!!! FULL TRACEBACK:\n{tb}")
