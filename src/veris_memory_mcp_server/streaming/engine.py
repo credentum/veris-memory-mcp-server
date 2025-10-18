@@ -8,7 +8,7 @@ batch processing capabilities for bulk operations.
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import structlog
 

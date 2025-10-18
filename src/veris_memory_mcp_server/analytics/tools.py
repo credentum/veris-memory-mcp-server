@@ -7,9 +7,9 @@ and operational insights through the MCP interface.
 
 from typing import Any, Dict
 
+from ..client.veris_client import VerisMemoryClient
 from ..protocol.schemas import Tool
 from ..tools.base import BaseTool, ToolError, ToolResult
-from ..client.veris_client import VerisMemoryClient
 
 
 class AnalyticsTool(BaseTool):
@@ -103,12 +103,12 @@ class AnalyticsTool(BaseTool):
         # Create summary text from API data
         operations = stats_data.get("operations", {})
         context_ops = stats_data.get("context_operations", {})
-        
+
         summary_lines = [
             f"Usage Statistics for {timeframe}:",
             f"• Total Operations: {operations.get('total', 0):,}",
             f"• Success Rate: {operations.get('success_rate_percent', 0):.1f}%",
-            f"• Average Response Time: {stats_data.get('performance', {}).get('avg_response_time_ms', 0):.0f}ms",
+            f"• Average Response Time: {stats_data.get('performance', {}).get('avg_response_time_ms', 0):.0f}ms",  # noqa: E501
         ]
 
         if context_ops.get("stored", 0) > 0:
@@ -116,7 +116,9 @@ class AnalyticsTool(BaseTool):
         if context_ops.get("retrieved", 0) > 0:
             summary_lines.append(f"• Contexts Retrieved: {context_ops.get('retrieved', 0):,}")
         if stats_data.get("search", {}).get("total_queries", 0) > 0:
-            summary_lines.append(f"• Search Queries: {stats_data.get('search', {}).get('total_queries', 0):,}")
+            summary_lines.append(
+                f"• Search Queries: {stats_data.get('search', {}).get('total_queries', 0):,}"
+            )
 
         return ToolResult.success(
             text="\n".join(summary_lines),
@@ -133,13 +135,15 @@ class AnalyticsTool(BaseTool):
         include_recommendations: bool,
     ) -> ToolResult:
         """Get performance insights and recommendations."""
-        insights_data = await self.veris_client.get_analytics("performance_insights", timeframe, include_recommendations)
+        insights_data = await self.veris_client.get_analytics(
+            "performance_insights", timeframe, include_recommendations
+        )
 
         # Create summary text from API data
         performance_score = insights_data.get("performance_score", 0)
         insights_list = insights_data.get("insights", [])
         recommendations = insights_data.get("recommendations", [])
-        
+
         summary_lines = [
             f"Performance Insights for {timeframe}:",
             f"• Performance Score: {performance_score:.1f}/100",
@@ -157,13 +161,17 @@ class AnalyticsTool(BaseTool):
         if insights_list:
             summary_lines.append("\nTop Insights:")
             for insight in insights_list[:3]:
-                summary_lines.append(f"• {insight.get('title', '')} ({insight.get('severity', 'info')})")
+                summary_lines.append(
+                    f"• {insight.get('title', '')} ({insight.get('severity', 'info')})"
+                )
 
         # Add top recommendations
         if include_recommendations and recommendations:
             summary_lines.append("\nTop Recommendations:")
             for rec in recommendations[:3]:
-                summary_lines.append(f"• {rec.get('title', '')} (Priority: {rec.get('priority', 0)})")
+                summary_lines.append(
+                    f"• {rec.get('title', '')} (Priority: {rec.get('priority', 0)})"
+                )
 
         data = insights_data.copy()
         if not include_recommendations:
@@ -209,11 +217,11 @@ class AnalyticsTool(BaseTool):
         usage_stats = summary_data.get("usage_stats", {})
         performance_insights = summary_data.get("performance_insights", {})
         real_time_metrics = summary_data.get("real_time_metrics", {})
-        
+
         operations = usage_stats.get("operations", {})
         context_ops = usage_stats.get("context_operations", {})
         performance = usage_stats.get("performance", {})
-        
+
         success_rate = operations.get("success_rate_percent", 0)
 
         summary_lines = [
@@ -408,7 +416,7 @@ class MetricsTool(BaseTool):
             metric_name=metric_name,
             labels=labels,
             since_minutes=since_minutes,
-            limit=limit
+            limit=limit,
         )
 
         metrics_list = metrics_data.get("metrics", [])

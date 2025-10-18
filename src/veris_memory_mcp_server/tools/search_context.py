@@ -26,20 +26,16 @@ class SearchContextTool(BaseTool):
     def get_schema(self) -> Tool:
         return self._create_schema(
             parameters={
-                "query": self._create_parameter(
-                    "string",
-                    "Search query for semantic matching"
-                ),
+                "query": self._create_parameter("string", "Search query for semantic matching"),
                 "filters": self._create_parameter(
-                    "object", 
-                    "Advanced search filters including date ranges, metadata, etc."
+                    "object", "Advanced search filters including date ranges, metadata, etc."
                 ),
                 "limit": self._create_parameter(
                     "integer",
                     f"Maximum results (1-{self.max_results})",
                     default=self.default_limit,
                     minimum=1,
-                    maximum=self.max_results
+                    maximum=self.max_results,
                 ),
             },
             required=["query"],
@@ -64,7 +60,7 @@ class SearchContextTool(BaseTool):
             )
 
             return ToolResult.success(
-                text=f"Search completed for '{query}' with {len(result.get('results', []))} results",
+                text=f"Search completed for '{query}' with {len(result.get('results', []))} results",  # noqa: E501
                 data=result,
                 metadata={
                     "operation": "search_context",

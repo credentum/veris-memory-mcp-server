@@ -5,7 +5,7 @@ Defines the JSON-RPC 2.0 message formats for the Model Context Protocol,
 including requests, responses, and error handling.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -86,7 +86,7 @@ class MCPResponse(MCPMessage):
         """Override dict to properly handle JSON-RPC 2.0 response format."""
         # Get base dict with exclude_unset=False to keep jsonrpc field
         result = super().dict(exclude_unset=False, **kwargs)
-        
+
         # JSON-RPC 2.0: Response must have either result OR error, never both
         if self.error is not None:
             # Error response - remove result field
@@ -94,7 +94,7 @@ class MCPResponse(MCPMessage):
         else:
             # Success response - remove error field
             result.pop("error", None)
-            
+
         return result
 
 
@@ -124,15 +124,19 @@ class ServerInfo(BaseModel):
 class ToolParameter(BaseModel):
     """Tool parameter definition following JSON Schema draft 2020-12."""
 
-    type: str = Field(description="Parameter type (string, integer, number, boolean, array, object)")
+    type: str = Field(
+        description="Parameter type (string, integer, number, boolean, array, object)"
+    )
     description: Optional[str] = Field(default=None, description="Parameter description")
     enum: Optional[List[str]] = Field(default=None, description="Allowed values for enum types")
     default: Optional[Any] = Field(default=None, description="Default value")
     minimum: Optional[float] = Field(default=None, description="Minimum value for numeric types")
     maximum: Optional[float] = Field(default=None, description="Maximum value for numeric types")
     items: Optional[Dict[str, Any]] = Field(default=None, description="Schema for array items")
-    properties: Optional[Dict[str, Any]] = Field(default=None, description="Properties for object types")
-    
+    properties: Optional[Dict[str, Any]] = Field(
+        default=None, description="Properties for object types"
+    )
+
     def dict(self, **kwargs) -> Dict[str, Any]:
         """Override dict to exclude None values for clean JSON Schema."""
         result = super().dict(exclude_none=True, **kwargs)
@@ -146,7 +150,7 @@ class ToolSchema(BaseModel):
     properties: Dict[str, Any] = Field(description="Tool parameters as JSON Schema properties")
     required: List[str] = Field(default_factory=list, description="Required parameter names")
     additionalProperties: bool = Field(default=False, description="Allow additional properties")
-    
+
     def dict(self, **kwargs) -> Dict[str, Any]:
         """Override dict to exclude None values for clean JSON Schema."""
         result = super().dict(exclude_none=True, **kwargs)

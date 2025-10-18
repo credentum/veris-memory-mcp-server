@@ -44,8 +44,8 @@ class ListContextTypesTool(BaseTool):
             if include_descriptions:
                 # Provide detailed information about each context type
                 type_info = {
-                    "decision": "Architectural decisions, design choices, and strategic determinations",
-                    "knowledge": "Documentation, procedures, best practices, and learning materials",
+                    "decision": "Architectural decisions, design choices, and strategic determinations",  # noqa: E501
+                    "knowledge": "Documentation, procedures, best practices, and learning materials",  # noqa: E501
                     "analysis": "Data analysis, performance reviews, and analytical insights",
                     "meeting_notes": "Meeting summaries, action items, and discussion records",
                     "issue": "Bug reports, problems, and their resolutions",

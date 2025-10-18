@@ -116,10 +116,10 @@ class AnalyticsConfig(BaseModel):
     cache_ttl_seconds: int = Field(default=300, description="Analytics API response cache TTL")
     api_timeout_seconds: int = Field(default=30, description="API request timeout")
     default_timeframe: str = Field(default="1h", description="Default analytics timeframe")
-    
+
     # Removed local analytics settings (no longer needed):
     # - retention_seconds: handled by API server
-    # - max_points_per_metric: handled by API server  
+    # - max_points_per_metric: handled by API server
     # - aggregation_interval_seconds: handled by API server
     # - export settings: handled by API server
 

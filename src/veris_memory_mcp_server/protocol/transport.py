@@ -8,7 +8,7 @@ transport mechanisms for MCP message exchange.
 import asyncio
 import json
 import sys
-from typing import Any, Awaitable, AsyncIterator, Callable, Dict, Optional, Union
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, Union
 
 import structlog
 from pydantic import ValidationError
@@ -21,8 +21,6 @@ logger = structlog.get_logger(__name__)
 class TransportError(Exception):
     """Base exception for transport errors."""
 
-    pass
-
 
 class StdioTransport:
     """
@@ -34,15 +32,18 @@ class StdioTransport:
 
     def __init__(self):
         self._running = False
-        self._message_handler: Optional[Union[
-            Callable[[MCPRequest], MCPResponse],
-            Callable[[MCPRequest], Awaitable[MCPResponse]]
-        ]] = None
+        self._message_handler: Optional[
+            Union[
+                Callable[[MCPRequest], MCPResponse], Callable[[MCPRequest], Awaitable[MCPResponse]]
+            ]
+        ] = None
 
-    def set_message_handler(self, handler: Union[
-        Callable[[MCPRequest], MCPResponse],
-        Callable[[MCPRequest], Awaitable[MCPResponse]]
-    ]) -> None:
+    def set_message_handler(
+        self,
+        handler: Union[
+            Callable[[MCPRequest], MCPResponse], Callable[[MCPRequest], Awaitable[MCPResponse]]
+        ],
+    ) -> None:
         """Set the message handler for incoming requests."""
         self._message_handler = handler
 
@@ -86,9 +87,9 @@ class StdioTransport:
             logger.info(
                 "ULTRA DEBUG: Sending exact JSON",
                 message_type=type(message).__name__,
-                message_id=getattr(message, 'id', 'no-id'),
+                message_id=getattr(message, "id", "no-id"),
                 message_json=message_json,
-                message_dict=message_dict
+                message_dict=message_dict,
             )
 
             # Write to stdout with newline - ensure immediate flush
@@ -98,7 +99,7 @@ class StdioTransport:
             logger.info(
                 "ULTRA DEBUG: Message sent to stdout successfully",
                 message_type=type(message).__name__,
-                message_id=getattr(message, 'id', 'no-id')
+                message_id=getattr(message, "id", "no-id"),
             )
 
         except Exception as e:
@@ -112,6 +113,7 @@ class StdioTransport:
         # Try OS-level flush if supported (not available in all pipe contexts)
         try:
             import os
+
             os.fsync(sys.stdout.fileno())
         except (OSError, AttributeError):
             # OS-level flush not supported in this context (e.g., pipes)
@@ -258,14 +260,14 @@ class StdioTransport:
             # Call handler (might be sync or async)
             logger.debug("Calling message handler", method=request.method, request_id=request.id)
             result = self._message_handler(request)
-            
+
             if asyncio.iscoroutine(result):
                 logger.debug("Handler returned coroutine, awaiting...")
                 response = await result
                 logger.debug(
                     "Handler completed",
-                    response_id=getattr(response, 'id', 'unknown'),
-                    response_type=type(response).__name__
+                    response_id=getattr(response, "id", "unknown"),
+                    response_type=type(response).__name__,
                 )
                 return response
             else:

@@ -5,7 +5,7 @@ Implements the core logic for handling MCP protocol messages,
 routing them to appropriate handlers, and managing the protocol lifecycle.
 """
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 import structlog
 
@@ -209,7 +209,7 @@ class MCPHandler:
 
             # Import ToolResult to check for it
             from ..tools.base import ToolResult
-            
+
             # Format result for MCP response
             if isinstance(result, ToolResult):
                 # Convert ToolResult to dict format

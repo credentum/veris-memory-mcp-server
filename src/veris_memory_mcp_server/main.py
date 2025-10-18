@@ -119,7 +119,7 @@ def init_config(config: Optional[Path] = None) -> None:
         click.echo("   export VERIS_MEMORY_USER_ID='your-user-id'")
         click.echo("2. Add to Claude CLI:")
         click.echo(
-            "   claude mcp add veris-memory --env VERIS_MEMORY_API_KEY --env VERIS_MEMORY_USER_ID -- veris-memory-mcp-server"
+            "   claude mcp add veris-memory --env VERIS_MEMORY_API_KEY --env VERIS_MEMORY_USER_ID -- veris-memory-mcp-server"  # noqa: E501
         )
     except Exception as e:
         click.echo(f"Failed to create configuration file: {e}", err=True)
@@ -129,7 +129,6 @@ def init_config(config: Optional[Path] = None) -> None:
 @click.group()
 def cli() -> None:
     """Veris Memory MCP Server CLI."""
-    pass
 
 
 cli.add_command(main, name="serve")
