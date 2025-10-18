@@ -11,16 +11,8 @@ from functools import wraps
 from typing import Any, Dict, List, Optional
 
 import structlog
-from veris_memory_sdk import MCPClient, MCPConfig
-from veris_memory_sdk.core.errors import (
-    MCPConnectionError,
-)
+from veris_memory_sdk import MCPClient
 from veris_memory_sdk.core.errors import MCPError as SDKMCPError
-from veris_memory_sdk.core.errors import (
-    MCPSecurityError,
-    MCPTimeoutError,
-    MCPValidationError,
-)
 
 from ..config.settings import Config
 
@@ -159,11 +151,6 @@ class VerisMemoryClient:
                 finally:
                     self._connected = False
                     self._session = None
-
-    async def _ensure_connected(self) -> None:
-        """Ensure connection is established."""
-        if not self._connected:
-            await self.connect()
 
     def _map_context_type(self, context_type: str) -> str:
         """
@@ -556,7 +543,8 @@ class VerisMemoryClient:
         Get analytics data from Veris Memory API.
 
         Args:
-            analytics_type: Type of analytics (usage_stats, performance_insights, real_time_metrics, summary)
+            analytics_type: Type of analytics
+                (usage_stats, performance_insights, real_time_metrics, summary)
             timeframe: Time period for analytics (5m, 15m, 1h, 6h, 24h, 7d, 30d)
             include_recommendations: Include performance recommendations
 
@@ -652,7 +640,8 @@ class VerisMemoryClient:
         Get metrics data from Veris Memory API.
 
         Args:
-            action: Action to perform (list_metrics, get_metrics, collector_stats, aggregated_metrics)
+            action: Action to perform
+                (list_metrics, get_metrics, collector_stats, aggregated_metrics)
             metric_name: Optional metric name pattern
             labels: Optional label filters
             since_minutes: Get metrics from last N minutes
