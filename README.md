@@ -52,15 +52,43 @@ pip install -e .
 
 ### Configuration
 
+#### Sprint 13: API Key Authentication
+
+Sprint 13 introduces API key authentication for enhanced security. All API requests now require an `X-API-Key` header.
+
 1. **Set up environment variables:**
    ```bash
-   export VERIS_MEMORY_API_KEY="your-api-key"
+   # Backend API URL
+   export VERIS_MEMORY_API_URL="http://localhost:8000"
+
+   # Sprint 13 API Key (required)
+   # Format: vmk_{prefix}_{random}:user_id:role:is_agent
+   export VERIS_MEMORY_API_KEY="vmk_writer_$(openssl rand -hex 16):mcp_server:writer:true"
+
+   # User ID (optional)
    export VERIS_MEMORY_USER_ID="your-user-id"
+   ```
+
+   **Development**: Use the default test key (requires backend `ENVIRONMENT=development`):
+   ```bash
+   export VERIS_MEMORY_API_KEY="vmk_test_a1b2c3d4e5f6789012345678901234567890"
+   ```
+
+   **Production**: Generate a secure API key and add it to the backend's `.env` file:
+   ```bash
+   # Generate key
+   KEY_SUFFIX=$(openssl rand -hex 16)
+   export VERIS_MEMORY_API_KEY="vmk_writer_${KEY_SUFFIX}:mcp_server:writer:true"
+
+   # Add to backend .env file
+   echo "API_KEY_MCP=vmk_writer_${KEY_SUFFIX}:mcp_server:writer:true" >> backend/.env
+   echo "AUTH_REQUIRED=true" >> backend/.env
    ```
 
 2. **Add to Claude CLI:**
    ```bash
    claude mcp add veris-memory \
+     --env VERIS_MEMORY_API_URL \
      --env VERIS_MEMORY_API_KEY \
      --env VERIS_MEMORY_USER_ID \
      -- veris-memory-mcp-server
@@ -73,6 +101,8 @@ pip install -e .
    # "Store this decision in Veris Memory: We chose React for the frontend"
    # "Retrieve contexts about our API architecture decisions"
    ```
+
+**📖 For detailed Sprint 13 setup instructions, see [docs/SPRINT_13_SETUP.md](docs/SPRINT_13_SETUP.md)**
 
 ## Usage Examples
 

@@ -152,6 +152,24 @@ class VerisMemoryClient:
                     self._connected = False
                     self._session = None
 
+    def _get_headers(self) -> Dict[str, str]:
+        """
+        Build HTTP headers with API key authentication for Sprint 13.
+
+        Returns:
+            Dictionary of HTTP headers including X-API-Key if configured
+        """
+        headers = {"Content-Type": "application/json"}
+
+        # Add Sprint 13 API key authentication if available
+        if self.config.veris_memory.api_key:
+            headers["X-API-Key"] = self.config.veris_memory.api_key
+            logger.debug("Added X-API-Key header for Sprint 13 authentication")
+        else:
+            logger.warning("No API key configured - requests may be rejected by Sprint 13 backend")
+
+        return headers
+
     def _map_context_type(self, context_type: str) -> str:
         """
         Map MCP context type to valid backend type.
@@ -280,7 +298,7 @@ class VerisMemoryClient:
             async with self._session.post(
                 f"{self._base_url}/tools/store_context",
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=self._get_headers(),
             ) as resp:
                 if resp.status == 200:
                     result = await resp.json()
@@ -349,7 +367,7 @@ class VerisMemoryClient:
             async with self._session.post(
                 f"{self._base_url}/tools/retrieve_context",
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=self._get_headers(),
             ) as resp:
                 if resp.status == 200:
                     result = await resp.json()
@@ -416,10 +434,7 @@ class VerisMemoryClient:
                 async with session.post(
                     f"{self._base_url}/tools/retrieve_context",
                     json=payload,
-                    headers={
-                        "Authorization": f"Bearer {self.config.veris_memory.api_key}",
-                        "Content-Type": "application/json",
-                    },
+                    headers=self._get_headers(),
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
@@ -595,7 +610,7 @@ class VerisMemoryClient:
                         "minutes": minutes,
                         "include_insights": "true" if include_recommendations else "false",
                     },
-                    headers={"Content-Type": "application/json"},
+                    headers=self._get_headers(),
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
@@ -681,7 +696,7 @@ class VerisMemoryClient:
                 async with session.get(
                     f"{self._base_url}/api/dashboard/analytics",
                     params={"minutes": since_minutes, "include_insights": "true"},
-                    headers={"Content-Type": "application/json"},
+                    headers=self._get_headers(),
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
