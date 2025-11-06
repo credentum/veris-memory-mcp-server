@@ -163,8 +163,11 @@ class VerisMemoryClient:
 
         # Add Sprint 13 API key authentication if available
         if self.config.veris_memory.api_key:
-            headers["X-API-Key"] = self.config.veris_memory.api_key
-            logger.debug("Added X-API-Key header for Sprint 13 authentication")
+            # Extract just the key part (before first colon)
+            # Format: vmk_xxx:user:role:is_agent -> send only vmk_xxx
+            api_key = self.config.veris_memory.api_key.split(':')[0]
+            headers["X-API-Key"] = api_key
+            logger.debug(f"Added X-API-Key header for Sprint 13 authentication: {api_key[:20]}...")
         else:
             logger.warning("No API key configured - requests may be rejected by Sprint 13 backend")
 
