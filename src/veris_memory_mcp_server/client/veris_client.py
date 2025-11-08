@@ -90,17 +90,7 @@ class VerisMemoryClient:
 
         # Add persistent session with connection pooling
         self._session: Optional[Any] = None  # aiohttp.ClientSession
-        try:
-            import aiohttp
-
-            self._connector = aiohttp.TCPConnector(
-                limit=100,  # Total connection limit
-                limit_per_host=30,  # Per-host connection limit
-                ttl_dns_cache=300,  # DNS cache timeout
-                enable_cleanup_closed=True,
-            )
-        except ImportError:
-            self._connector = None
+        self._connector = None  # Will be created in connect() when event loop exists
 
     async def connect(self) -> None:
         """Connect to Veris Memory API with connection pooling."""
@@ -112,6 +102,15 @@ class VerisMemoryClient:
                 # For testing with local veris-memory service, use direct HTTP instead of SDK
                 # This avoids SDK security restrictions for private networks
                 import aiohttp
+
+                # Create connector if not already created (must be done when event loop exists)
+                if self._connector is None:
+                    self._connector = aiohttp.TCPConnector(
+                        limit=100,  # Total connection limit
+                        limit_per_host=30,  # Per-host connection limit
+                        ttl_dns_cache=300,  # DNS cache timeout
+                        enable_cleanup_closed=True,
+                    )
 
                 # Create persistent session with connection pooling
                 self._session = aiohttp.ClientSession(
