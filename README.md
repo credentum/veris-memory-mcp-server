@@ -176,6 +176,111 @@ Create a `config.json` file:
 | `VERIS_MEMORY_USER_ID` | User ID for scoped operations | Yes |
 | `VERIS_MCP_CONFIG_PATH` | Path to configuration file | No |
 | `VERIS_MCP_LOG_LEVEL` | Logging level (DEBUG, INFO, WARN, ERROR) | No |
+| `NEO4J_PASSWORD` | Neo4j database password | Yes (if using Docker) |
+| `REDIS_PASSWORD` | Redis cache password | Yes (if using Docker) |
+
+## Security
+
+### Development Environment Security
+
+**🔒 Secure by Default**: The `docker-compose.dev.yml` configuration uses security best practices:
+
+- ✅ **All database ports bound to localhost (127.0.0.1)** - Prevents internet exposure
+- ✅ **Redis password authentication required** - No unauthenticated access
+- ✅ **Neo4j password authentication required** - Protected graph database
+- ✅ **Health checks enabled** - Ensures services are running securely
+
+### Quick Setup (Secure Development)
+
+```bash
+# 1. Copy environment template
+cp .env.example .env
+
+# 2. Edit .env and set secure passwords
+# Change NEO4J_PASSWORD and REDIS_PASSWORD
+
+# 3. Start services with secure configuration
+docker-compose -f docker-compose.dev.yml up -d
+
+# 4. Verify services are only accessible locally
+# These should all work:
+curl http://localhost:6333/health  # Qdrant
+curl http://localhost:7474         # Neo4j
+redis-cli -a your-password ping    # Redis
+
+# These should FAIL from external machine:
+curl http://your-server-ip:6333/health  # Should timeout/refuse
+```
+
+### Port Binding Explained
+
+**Development (docker-compose.dev.yml):**
+```yaml
+ports:
+  - "127.0.0.1:6379:6379"  # ✅ Localhost only - Secure
+```
+
+**Insecure (DON'T DO THIS):**
+```yaml
+ports:
+  - "6379:6379"  # ❌ Binds to 0.0.0.0 - EXPOSED TO INTERNET!
+```
+
+### Remote Access
+
+If you need to access services running on a remote server:
+
+**Option 1: SSH Tunnel (Recommended)**
+```bash
+# Forward remote Neo4j browser to your local machine
+ssh -L 7474:localhost:7474 user@server
+
+# Now access http://localhost:7474 in your browser
+```
+
+**Option 2: VPN/Tailscale**
+```bash
+# Install Tailscale on server and client
+# Access services via Tailscale IP
+```
+
+### Security Checklist
+
+Before deploying:
+
+- [ ] Changed all default passwords in `.env`
+- [ ] Verified ports are bound to `127.0.0.1` in compose file
+- [ ] Tested external access is blocked (should fail)
+- [ ] Tested local access works (should succeed)
+- [ ] Added `.env` to `.gitignore` (already included)
+- [ ] Never committed passwords to git
+
+### Production Security
+
+For production deployments:
+
+1. **Use strong, unique passwords** (16+ characters)
+2. **Use secrets management** (AWS Secrets Manager, HashiCorp Vault, etc.)
+3. **Enable TLS/SSL** for all connections
+4. **Use private networks** (VPC, VPN) for database access
+5. **Implement rate limiting** on APIs
+6. **Enable audit logging** for all operations
+7. **Regular security updates** for all containers
+8. **Network segmentation** between services
+
+### Common Security Issues
+
+❌ **Docker exposes ports despite firewall:**
+- Docker bypasses UFW/iptables by default
+- Solution: Bind to `127.0.0.1:PORT:PORT` instead of `PORT:PORT`
+
+❌ **Redis accessible without password:**
+- Default Redis has no authentication
+- Solution: Use `--requirepass` flag (already configured in dev compose)
+
+❌ **Databases exposed to internet:**
+- Easy to accidentally expose with `0.0.0.0` binding
+- Solution: Always use `127.0.0.1` for development
 
 ## Development
 
