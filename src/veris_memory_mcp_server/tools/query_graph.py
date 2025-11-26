@@ -87,7 +87,15 @@ class QueryGraphTool(BaseTool):
             # Security check for read-only mode
             if self.read_only:
                 query_upper = query.upper()
-                dangerous_keywords = ["CREATE", "DELETE", "SET", "REMOVE", "MERGE", "DROP", "DETACH"]
+                dangerous_keywords = [
+                    "CREATE",
+                    "DELETE",
+                    "SET",
+                    "REMOVE",
+                    "MERGE",
+                    "DROP",
+                    "DETACH",
+                ]
                 for keyword in dangerous_keywords:
                     if keyword in query_upper:
                         raise ToolError(

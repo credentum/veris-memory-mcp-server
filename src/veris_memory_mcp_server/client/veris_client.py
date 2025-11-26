@@ -164,7 +164,7 @@ class VerisMemoryClient:
         if self.config.veris_memory.api_key:
             # Extract just the key part (before first colon)
             # Format: vmk_xxx:user:role:is_agent -> send only vmk_xxx
-            api_key = self.config.veris_memory.api_key.split(':')[0]
+            api_key = self.config.veris_memory.api_key.split(":")[0]
             headers["X-API-Key"] = api_key
             logger.debug(f"Added X-API-Key header for Sprint 13 authentication: {api_key[:20]}...")
         else:

@@ -334,9 +334,7 @@ class VerisMemoryMCPServer:
                 self.config.tools.query_graph.dict(),
             )
             self._tools["query_graph"] = query_graph_tool
-            self.mcp_handler.register_tool(
-                query_graph_tool.get_schema(), query_graph_tool.execute
-            )
+            self.mcp_handler.register_tool(query_graph_tool.get_schema(), query_graph_tool.execute)
             logger.debug("Registered query_graph tool")
 
         # Update Scratchpad Tool
