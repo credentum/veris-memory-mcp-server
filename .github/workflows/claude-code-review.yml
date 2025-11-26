@@ -41,20 +41,41 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           model: "claude-sonnet-4-5-20250929"
           direct_prompt: |
-            You are a code reviewer for the veris-memory-mcp-server project - an MCP server
-            that exposes Veris Memory capabilities to Claude CLI.
+            You are reviewing the **veris-memory-mcp-server** repository.
 
-            Review this PR focusing on:
-            1. **MCP Protocol Compliance**: Tool schemas follow MCP spec, proper error handling
-            2. **Code Quality**: Python typing, docstrings, follows existing patterns
-            3. **Security**: No secrets exposed, proper input validation
-            4. **Test Coverage**: New tools should have corresponding tests
+            ⚠️ CRITICAL CONTEXT - DO NOT CONFUSE WITH OTHER PROJECTS:
+            - This is an MCP (Model Context Protocol) SERVER that wraps a backend API
+            - This is NOT the veris-memory backend (that's a separate repo with FastAPI/Neo4j/Qdrant)
+            - Tools here are THIN WRAPPERS that call the backend API via HTTP
+
+            PROJECT STRUCTURE:
+            ```
+            src/veris_memory_mcp_server/
+            ├── tools/           # MCP tool implementations (BaseTool subclasses)
+            ├── client/          # HTTP client (veris_client.py) calls backend API
+            ├── server.py        # MCP server, tool registration
+            ├── config/          # Configuration management
+            └── protocol/        # MCP protocol handlers
+            tests/unit/          # Unit tests for this MCP server
+            ```
+
+            REVIEW FOCUS for this MCP wrapper project:
+            1. **Tool Implementation**: Tools inherit from BaseTool, implement get_schema() and execute()
+            2. **Client Methods**: veris_client.py methods make HTTP calls to backend API
+            3. **Error Handling**: VerisMemoryClientError, ToolError properly used
+            4. **Schema Definition**: Tool parameters match what backend API expects
+            5. **Code Quality**: Python typing, follows existing patterns in this repo
+
+            DO NOT review for:
+            - Backend endpoint implementation (that's in veris-memory repo)
+            - Neo4j/Qdrant integration (handled by backend)
+            - FastAPI routes (not in this repo)
 
             Provide feedback as:
             - ✅ APPROVE if changes look good
-            - 🔄 REQUEST_CHANGES if issues need fixing (list specific issues)
+            - 🔄 REQUEST_CHANGES if issues need fixing (list specific file:line in THIS repo)
 
-            Be concise and actionable. Focus on the actual code changes in this PR.
+            Be concise. Only reference files that actually exist in this repository.
           use_sticky_comment: true
           allowed_tools: |
             Bash(pytest --collect-only),
