@@ -21,10 +21,16 @@ from .protocol.transport import StdioTransport
 from .streaming.engine import StreamingEngine
 from .streaming.tools import BatchOperationsTool, StreamingSearchTool
 from .tools.delete_context import DeleteContextTool
+from .tools.forget_context import ForgetContextTool
+from .tools.get_agent_state import GetAgentStateTool
+from .tools.get_user_facts import GetUserFactsTool
 from .tools.list_context_types import ListContextTypesTool
+from .tools.query_graph import QueryGraphTool
 from .tools.retrieve_context import RetrieveContextTool
 from .tools.search_context import SearchContextTool
 from .tools.store_context import StoreContextTool
+from .tools.update_scratchpad import UpdateScratchpadTool
+from .tools.upsert_fact import UpsertFactTool
 from .utils.cache import CachedVerisClient, MemoryCache
 from .utils.health import (
     create_cache_health_check,
@@ -286,6 +292,76 @@ class VerisMemoryMCPServer:
             self._tools["list_context_types"] = list_tool
             self.mcp_handler.register_tool(list_tool.get_schema(), list_tool.execute)
             logger.debug("Registered list_context_types tool")
+
+        # Upsert Fact Tool
+        if self.config.tools.upsert_fact.enabled:
+            upsert_fact_tool = UpsertFactTool(
+                client_to_use,
+                self.config.tools.upsert_fact.dict(),
+            )
+            self._tools["upsert_fact"] = upsert_fact_tool
+            self.mcp_handler.register_tool(upsert_fact_tool.get_schema(), upsert_fact_tool.execute)
+            logger.debug("Registered upsert_fact tool")
+
+        # Get User Facts Tool
+        if self.config.tools.get_user_facts.enabled:
+            get_user_facts_tool = GetUserFactsTool(
+                client_to_use,
+                self.config.tools.get_user_facts.dict(),
+            )
+            self._tools["get_user_facts"] = get_user_facts_tool
+            self.mcp_handler.register_tool(
+                get_user_facts_tool.get_schema(), get_user_facts_tool.execute
+            )
+            logger.debug("Registered get_user_facts tool")
+
+        # Forget Context Tool
+        if self.config.tools.forget_context.enabled:
+            forget_context_tool = ForgetContextTool(
+                client_to_use,
+                self.config.tools.forget_context.dict(),
+            )
+            self._tools["forget_context"] = forget_context_tool
+            self.mcp_handler.register_tool(
+                forget_context_tool.get_schema(), forget_context_tool.execute
+            )
+            logger.debug("Registered forget_context tool")
+
+        # Query Graph Tool
+        if self.config.tools.query_graph.enabled:
+            query_graph_tool = QueryGraphTool(
+                client_to_use,
+                self.config.tools.query_graph.dict(),
+            )
+            self._tools["query_graph"] = query_graph_tool
+            self.mcp_handler.register_tool(
+                query_graph_tool.get_schema(), query_graph_tool.execute
+            )
+            logger.debug("Registered query_graph tool")
+
+        # Update Scratchpad Tool
+        if self.config.tools.update_scratchpad.enabled:
+            update_scratchpad_tool = UpdateScratchpadTool(
+                client_to_use,
+                self.config.tools.update_scratchpad.dict(),
+            )
+            self._tools["update_scratchpad"] = update_scratchpad_tool
+            self.mcp_handler.register_tool(
+                update_scratchpad_tool.get_schema(), update_scratchpad_tool.execute
+            )
+            logger.debug("Registered update_scratchpad tool")
+
+        # Get Agent State Tool
+        if self.config.tools.get_agent_state.enabled:
+            get_agent_state_tool = GetAgentStateTool(
+                client_to_use,
+                self.config.tools.get_agent_state.dict(),
+            )
+            self._tools["get_agent_state"] = get_agent_state_tool
+            self.mcp_handler.register_tool(
+                get_agent_state_tool.get_schema(), get_agent_state_tool.execute
+            )
+            logger.debug("Registered get_agent_state tool")
 
         # Advanced streaming tools
         if self.streaming_engine:

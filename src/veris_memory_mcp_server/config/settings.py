@@ -133,6 +133,16 @@ class ToolsConfig(BaseModel):
     delete_context: ToolConfig = Field(default_factory=lambda: ToolConfig(enabled=False))
     list_context_types: ToolConfig = Field(default_factory=ToolConfig)
 
+    # Fact management tools
+    upsert_fact: ToolConfig = Field(default_factory=ToolConfig)
+    get_user_facts: ToolConfig = Field(default_factory=ToolConfig)
+    forget_context: ToolConfig = Field(default_factory=ToolConfig)
+
+    # Graph and state tools
+    query_graph: ToolConfig = Field(default_factory=ToolConfig)
+    update_scratchpad: ToolConfig = Field(default_factory=ToolConfig)
+    get_agent_state: ToolConfig = Field(default_factory=ToolConfig)
+
     # Advanced tools
     streaming_search: ToolConfig = Field(default_factory=ToolConfig)
     batch_operations: ToolConfig = Field(default_factory=ToolConfig)

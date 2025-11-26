@@ -536,6 +536,367 @@ class VerisMemoryClient:
                 original_error=e,
             )
 
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def upsert_fact(
+        self,
+        fact_key: str,
+        fact_value: str,
+        user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        create_relationships: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Atomically update or insert a user fact.
+
+        This operation:
+        1. Searches for existing facts with the same key
+        2. Soft-deletes (forgets) old facts
+        3. Stores the new fact value
+
+        Args:
+            fact_key: The fact key (e.g., 'favorite_color', 'home_country')
+            fact_value: The fact value (e.g., 'blue', 'Vietnam')
+            user_id: Optional user ID (defaults to config user_id)
+            metadata: Optional additional metadata
+            create_relationships: Whether to create graph relationships
+
+        Returns:
+            Result with new fact ID and count of replaced facts
+
+        Raises:
+            VerisMemoryClientError: If upsert fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "fact_key": fact_key,
+                "fact_value": fact_value,
+                "user_id": user_id or self.config.veris_memory.user_id,
+                "create_relationships": create_relationships,
+            }
+
+            if metadata:
+                payload["metadata"] = metadata
+
+            async with self._session.post(
+                f"{self._base_url}/tools/upsert_fact",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "Fact upserted successfully",
+                        fact_key=fact_key,
+                        fact_id=result.get("id"),
+                        replaced_count=result.get("replaced_count", 0),
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Upsert fact failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to upsert fact", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to upsert fact: {str(e)}",
+                original_error=e,
+            )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def get_user_facts(
+        self,
+        user_id: str,
+        limit: int = 50,
+        include_forgotten: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Get all facts for a specific user.
+
+        Unlike semantic search, this retrieves ALL facts for a user
+        without relying on query similarity, ensuring complete recall.
+
+        Args:
+            user_id: The user ID to get facts for
+            limit: Maximum number of facts to return (default 50, max 200)
+            include_forgotten: Whether to include soft-deleted facts
+
+        Returns:
+            Result with list of facts and count
+
+        Raises:
+            VerisMemoryClientError: If retrieval fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "user_id": user_id,
+                "limit": min(limit, 200),
+                "include_forgotten": include_forgotten,
+            }
+
+            async with self._session.post(
+                f"{self._base_url}/tools/get_user_facts",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "User facts retrieved",
+                        user_id=user_id,
+                        count=result.get("count", 0),
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Get user facts failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to get user facts", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to get user facts: {str(e)}",
+                original_error=e,
+            )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def forget_context(
+        self,
+        context_id: str,
+        reason: Optional[str] = None,
+        retention_days: int = 30,
+    ) -> Dict[str, Any]:
+        """
+        Soft-delete a context with optional retention period.
+
+        Unlike hard delete, forgotten contexts can be recovered
+        within the retention period.
+
+        Args:
+            context_id: ID of context to forget
+            reason: Optional reason for forgetting
+            retention_days: Days to retain before permanent deletion
+
+        Returns:
+            Result with forget confirmation
+
+        Raises:
+            VerisMemoryClientError: If forget fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "context_id": context_id,
+                "retention_days": retention_days,
+            }
+
+            if reason:
+                payload["reason"] = reason
+
+            async with self._session.post(
+                f"{self._base_url}/tools/forget_context",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "Context forgotten",
+                        context_id=context_id,
+                        retention_days=retention_days,
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Forget context failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to forget context", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to forget context: {str(e)}",
+                original_error=e,
+            )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def query_graph(
+        self,
+        query: str,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute a Cypher query against the Neo4j graph database.
+
+        Args:
+            query: Cypher query string
+            parameters: Optional query parameters
+
+        Returns:
+            Query results
+
+        Raises:
+            VerisMemoryClientError: If query fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "query": query,
+            }
+
+            if parameters:
+                payload["parameters"] = parameters
+
+            async with self._session.post(
+                f"{self._base_url}/tools/query_graph",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "Graph query executed",
+                        result_count=len(result.get("results", [])),
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Graph query failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to execute graph query", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to execute graph query: {str(e)}",
+                original_error=e,
+            )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def update_scratchpad(
+        self,
+        content: Dict[str, Any],
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Update the agent's session scratchpad.
+
+        The scratchpad is a temporary workspace for agents to store
+        intermediate results, notes, and working data during a session.
+
+        Args:
+            content: Content to store in scratchpad
+            session_id: Optional session ID (auto-generated if not provided)
+
+        Returns:
+            Result with scratchpad update confirmation
+
+        Raises:
+            VerisMemoryClientError: If update fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "content": content,
+            }
+
+            if session_id:
+                payload["session_id"] = session_id
+
+            async with self._session.post(
+                f"{self._base_url}/tools/update_scratchpad",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "Scratchpad updated",
+                        session_id=result.get("session_id"),
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Update scratchpad failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to update scratchpad", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to update scratchpad: {str(e)}",
+                original_error=e,
+            )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def get_agent_state(
+        self,
+        agent_id: Optional[str] = None,
+        include_scratchpad: bool = True,
+        include_recent_contexts: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Get the current state of an agent.
+
+        Returns the agent's scratchpad, recent contexts, and other
+        session-related information.
+
+        Args:
+            agent_id: Optional agent ID (defaults to current agent)
+            include_scratchpad: Whether to include scratchpad content
+            include_recent_contexts: Whether to include recent contexts
+
+        Returns:
+            Agent state information
+
+        Raises:
+            VerisMemoryClientError: If retrieval fails
+        """
+        await self._ensure_connected()
+
+        try:
+            payload = {
+                "include_scratchpad": include_scratchpad,
+                "include_recent_contexts": include_recent_contexts,
+            }
+
+            if agent_id:
+                payload["agent_id"] = agent_id
+
+            async with self._session.post(
+                f"{self._base_url}/tools/get_agent_state",
+                json=payload,
+                headers=self._get_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    logger.info(
+                        "Agent state retrieved",
+                        agent_id=result.get("agent_id"),
+                    )
+                    return result
+                else:
+                    error_text = await resp.text()
+                    raise VerisMemoryClientError(
+                        f"Get agent state failed with status {resp.status}: {error_text}"
+                    )
+
+        except Exception as e:
+            logger.error("Failed to get agent state", error=str(e))
+            raise VerisMemoryClientError(
+                f"Failed to get agent state: {str(e)}",
+                original_error=e,
+            )
+
     async def _ensure_connected(self) -> None:
         """Ensure client is connected, reconnecting if necessary."""
         if not self._connected or not self._client:

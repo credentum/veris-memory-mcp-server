@@ -35,6 +35,12 @@ This server implements the [Model Context Protocol](https://modelcontextprotocol
 | `search_context` | Advanced search with filters | Complex queries with metadata filters |
 | `delete_context` | Remove contexts (with authorization) | Clean up outdated information |
 | `list_context_types` | Get available context types | Discover schema options |
+| `upsert_fact` | Create or update user facts | Store persistent user preferences |
+| `get_user_facts` | Retrieve all facts for a user | Get personalization data |
+| `forget_context` | Soft-delete/archive context | GDPR compliance, privacy |
+| `query_graph` | Execute Cypher queries | Advanced graph traversal |
+| `update_scratchpad` | Update agent scratchpad | Temporary working memory |
+| `get_agent_state` | Get agent state/scratchpad | Retrieve session state |
 
 ## Quick Start
 
